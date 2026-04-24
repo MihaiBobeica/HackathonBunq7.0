@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { AlertCircle, FileText, ImageUp, Loader2, ScanSearch } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8010';
+
 export default function UploadScreen({ onAnalyze, onBack }) {
   const [previews, setPreviews] = useState([]);
   const [files, setFiles] = useState([]);
@@ -32,7 +34,7 @@ export default function UploadScreen({ onAnalyze, onBack }) {
     files.forEach(file => form.append('files', file));
 
     try {
-      const response = await fetch('http://localhost:8000/scam-check', {
+      const response = await fetch(`${API_BASE_URL}/scam-check`, {
         method: 'POST',
         body: form,
       });
