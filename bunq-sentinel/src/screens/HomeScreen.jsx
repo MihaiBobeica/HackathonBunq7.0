@@ -1,113 +1,217 @@
-import { ShoppingBasket, TrainFront, Film, WalletCards, PiggyBank, Send, CreditCard, Landmark, Leaf, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  ArrowDown, ArrowUp, Building2, ChevronRight, Gift, Landmark, Plus,
+  QrCode, Search, ShieldCheck, Sparkles, UserRound,
+} from 'lucide-react';
+
+const spring = { type: 'spring', stiffness: 420, damping: 28 };
+
+const QUICK_ACTIONS = [
+  {
+    label: 'Pay',
+    icon: <ArrowUp className="h-4 w-4" />,
+    className: 'border-orange-500 bg-orange-950/80 text-white shadow-[0_0_22px_rgba(249,115,22,0.22)]',
+  },
+  {
+    label: 'Request',
+    icon: <ArrowDown className="h-4 w-4" />,
+    className: 'border-[#0a9dff] bg-sky-950/80 text-white shadow-[0_0_22px_rgba(14,165,233,0.22)]',
+  },
+  {
+    label: 'Add Money',
+    shortLabel: 'Add',
+    icon: <Plus className="h-4 w-4" />,
+    className: 'border-fuchsia-500 bg-fuchsia-950/80 text-white shadow-[0_0_22px_rgba(217,70,239,0.22)]',
+  },
+];
+
+function SectionTitle({ children, action }) {
+  return (
+    <div className="mb-3 flex items-center justify-between">
+      <h2 className="text-[20px] font-black tracking-tight text-white">{children}</h2>
+      {action}
+    </div>
+  );
+}
 
 export default function HomeScreen({ onStartPayment, onForceAI }) {
   return (
-    <div className="screen-enter pb-24">
-      <div className="bunq-gradient text-white px-5 pt-5 pb-16 rounded-b-[2.2rem] relative overflow-hidden">
-        <div className="flex items-center justify-between text-xs font-bold opacity-90">
-          <span>Easy Money Account</span>
-          <span className="px-2.5 py-1 rounded-full bg-white/10">NL</span>
-        </div>
-        <p className="text-sm opacity-85 mt-6">Total Balance</p>
-        <div className="flex items-end justify-between gap-3 mt-1">
-          <h2 className="text-[39px] leading-none font-black tracking-normal">EUR 12,450</h2>
-          <button
-            onClick={onStartPayment}
-            className="w-12 h-12 rounded-2xl bg-white text-slate-950 grid place-items-center shadow-lg hover:scale-[1.03] transition"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={spring}
+      className="min-h-full bg-black px-5 pb-8 pt-5 text-white"
+    >
+      <div className="mb-7 flex items-center justify-between">
+        <motion.button
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.98 }}
+          transition={spring}
+          className="grid h-11 w-11 place-items-center rounded-full bg-[#1c1c1e] text-white shadow-[0_14px_28px_rgba(0,0,0,0.35)]"
+        >
+          <UserRound className="h-6 w-6" />
+        </motion.button>
+
+        <div className="flex items-center gap-5 text-white">
+          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} transition={spring} className="grid h-10 w-10 place-items-center rounded-full text-2xl leading-none">
+            ✱
+          </motion.button>
+          <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} transition={spring} className="grid h-10 w-10 place-items-center rounded-full">
+            <QrCode className="h-6 w-6" />
+          </motion.button>
         </div>
       </div>
 
-      <div className="px-4 -mt-10 space-y-4 relative z-10">
-        <button
-          onClick={onForceAI}
-          className="w-full glass rounded-3xl p-4 soft-shadow border border-white/80 text-left hover:-translate-y-0.5 transition"
+      <h1 className="mb-5 text-[46px] font-black leading-none tracking-tight text-white">Home</h1>
+
+      <motion.div
+        whileHover={{ y: -3 }}
+        transition={spring}
+        className="mb-4 rounded-[1.75rem] bg-[#125a38] p-5 text-center shadow-[0_20px_45px_rgba(0,0,0,0.45)]"
+      >
+        <h2 className="text-[25px] font-black leading-tight text-[#48e59c]">
+          Add 15 EUR to start using your account
+        </h2>
+        <p className="mx-auto mt-2 max-w-[280px] text-[17px] font-semibold leading-snug text-[#48e59c]/90">
+          Instantly fund your account to start banking today.
+        </p>
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={onStartPayment}
+          className="mt-6 h-13 w-full rounded-2xl bg-gradient-to-b from-[#56eaa7] to-[#29c987] py-3.5 text-[18px] font-black text-white"
         >
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-950 text-white grid place-items-center shrink-0">
-              <Sparkles className="w-5 h-5" />
+          Add Money
+        </motion.button>
+      </motion.div>
+
+      <div className="mb-8 grid grid-cols-3 gap-3">
+        {QUICK_ACTIONS.map(({ label, shortLabel, icon, className }, i) => (
+          <motion.button
+            key={label}
+            onClick={i === 0 ? onStartPayment : undefined}
+            whileHover={{ y: -3 }}
+            whileTap={{ scale: 0.98 }}
+            transition={spring}
+            className={`flex h-[56px] min-w-0 items-center justify-center gap-1.5 rounded-[1.35rem] border-2 px-2 text-[14px] font-black leading-none ${className}`}
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 [&_svg]:block">
+              {icon}
+            </span>
+            <span className="min-w-0 truncate whitespace-nowrap">{shortLabel || label}</span>
+          </motion.button>
+        ))}
+      </div>
+
+      <section className="mb-8">
+        <SectionTitle>Action Needed</SectionTitle>
+        <motion.div
+          whileHover={{ y: -3 }}
+          transition={spring}
+          className="w-full rounded-[1.65rem] bg-[#1c1c1e] p-5 text-left shadow-[0_16px_34px_rgba(0,0,0,0.28)]"
+        >
+          <div className="flex items-center gap-4">
+            <div className="relative grid h-[58px] w-[58px] shrink-0 place-items-center rounded-2xl bg-[#0a9dff] text-white">
+              <Building2 className="h-8 w-8" />
+              <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-red-500 ring-2 ring-black" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[20px] font-semibold text-white">Tax Information Needed</p>
+              <p className="text-[15px] font-semibold text-zinc-500">Awaiting</p>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      <section className="mb-8">
+        <SectionTitle>Bank Accounts</SectionTitle>
+        <motion.div whileHover={{ y: -3 }} transition={spring} className="rounded-[1.65rem] bg-[#1c1c1e] p-5 shadow-[0_16px_34px_rgba(0,0,0,0.28)]">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-2xl bg-gradient-to-b from-[#129dff] to-[#0067c8] text-white shadow-[0_12px_26px_rgba(10,157,255,0.22)]">
+                <Landmark className="h-8 w-8" />
+              </div>
+              <p className="truncate text-[21px] font-semibold text-white">Bank Account</p>
+            </div>
+            <p className="shrink-0 text-[23px] font-black text-white">0,00 EUR</p>
+          </div>
+          <div className="my-5 h-px bg-white/10" />
+          <button className="text-left text-[20px] font-medium text-[#0a9dff]">
+            Add an Extra Bank Account
+          </button>
+        </motion.div>
+      </section>
+
+      <section className="mb-8">
+        <SectionTitle
+          action={(
+            <button className="grid h-11 w-11 place-items-center rounded-full bg-[#1c1c1e] text-white">
+              <Search className="h-6 w-6" />
+            </button>
+          )}
+        >
+          Recent Transactions
+        </SectionTitle>
+        <div className="relative rounded-[1.65rem] bg-[#1c1c1e] p-5 shadow-[0_16px_34px_rgba(0,0,0,0.28)]">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className={`flex items-center justify-between py-3 ${row < 2 ? 'border-b border-white/10' : ''}`}>
+              <div className="flex items-center gap-4">
+                <div className="h-[58px] w-[58px] rounded-full bg-zinc-600" />
+                <div className="space-y-3">
+                  <div className="h-3 w-36 rounded-full bg-zinc-600" />
+                  <div className="h-3 w-32 rounded-full bg-zinc-600" />
+                </div>
+              </div>
+              <div className="h-3 w-16 rounded-full bg-zinc-600" />
+            </div>
+          ))}
+          <div className="absolute left-1/2 top-1/2 w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-[#2b2b2d] px-5 py-4 text-center shadow-2xl">
+            <p className="text-[16px] font-black text-white">No Transactions Yet</p>
+            <p className="mt-1 text-[14px] font-medium text-zinc-200">Your transactions will appear here</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-5">
+        <SectionTitle>Extras</SectionTitle>
+        <motion.button whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} transition={spring} className="w-full rounded-[1.65rem] bg-[#1c1c1e] p-5 text-left shadow-[0_16px_34px_rgba(0,0,0,0.28)]">
+          <div className="flex items-center gap-4">
+            <div className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-2xl bg-emerald-900/70">
+              <Gift className="h-8 w-8 text-yellow-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-black text-slate-950">Finn Sentinel</p>
-                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">AI ON</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Ask Finn to check a suspicious payment, invoice, or marketplace chat before you send money.
+              <p className="text-[20px] font-black leading-tight text-white">Get EUR 100 when you invite a friend</p>
+              <p className="mt-1 text-[15px] font-medium leading-snug text-zinc-500">
+                Invite a friend to bunq. Once they switch from another bank, you both get EUR 100.
+              </p>
+              <p className="mt-1 text-[14px] font-semibold text-yellow-400">1 left this month</p>
+            </div>
+            <ChevronRight className="h-8 w-8 shrink-0 text-zinc-500" />
+          </div>
+        </motion.button>
+      </section>
+
+      <section className="pb-2">
+        <motion.button
+          onClick={onForceAI}
+          whileHover={{ y: -3 }}
+          whileTap={{ scale: 0.98 }}
+          transition={spring}
+          className="w-full rounded-[1.65rem] bg-[#1c1c1e] p-5 text-left shadow-[0_16px_34px_rgba(0,0,0,0.28)]"
+        >
+          <div className="flex items-center gap-4">
+            <div className="grid h-[56px] w-[56px] shrink-0 place-items-center rounded-2xl bg-fuchsia-950 text-fuchsia-300">
+              <Sparkles className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[20px] font-black text-white">Warden</p>
+              <p className="text-[14px] font-semibold text-zinc-500">
+                Check suspicious payments before you send money.
               </p>
             </div>
+            <ShieldCheck className="ml-auto h-7 w-7 text-emerald-400" />
           </div>
-        </button>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-            <div className="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 grid place-items-center mb-4">
-              <WalletCards className="w-5 h-5" />
-            </div>
-            <p className="text-[11px] text-slate-500 font-bold">Main Account</p>
-            <p className="font-black text-slate-950 mt-1">EUR 4,200</p>
-          </div>
-          <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-            <div className="w-9 h-9 rounded-2xl bg-violet-50 text-violet-600 grid place-items-center mb-4">
-              <PiggyBank className="w-5 h-5" />
-            </div>
-            <p className="text-[11px] text-slate-500 font-bold">Savings Goal</p>
-            <p className="font-black text-slate-950 mt-1">EUR 8,250</p>
-          </div>
-        </div>
-
-        <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-black text-slate-950">bunq shortcuts</h3>
-            <span className="text-[11px] font-bold text-slate-400">Finn ready</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { icon: <Send className="w-5 h-5" />, label: 'Pay', onClick: onStartPayment },
-              { icon: <CreditCard className="w-5 h-5" />, label: 'Cards', onClick: null },
-              { icon: <Landmark className="w-5 h-5" />, label: 'Save', onClick: null },
-              { icon: <Leaf className="w-5 h-5" />, label: 'Green', onClick: null },
-            ].map(({ icon, label, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                className="h-[70px] rounded-2xl bg-slate-50 hover:bg-slate-100 grid place-items-center text-slate-800 transition"
-              >
-                <span className="grid place-items-center gap-1 text-[11px] font-bold">
-                  {icon}{label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-black text-slate-950">Recent</h3>
-            <button onClick={onForceAI} className="text-[11px] font-black bunq-text-gradient">Ask Finn</button>
-          </div>
-          <div className="space-y-4">
-            {[
-              { icon: <ShoppingBasket className="w-5 h-5" />, bg: 'bg-orange-50 text-orange-600', name: 'Albert Heijn', cat: 'Groceries', amount: '- EUR 34.50' },
-              { icon: <TrainFront className="w-5 h-5" />, bg: 'bg-sky-50 text-sky-600', name: 'NS International', cat: 'Travel', amount: '- EUR 22.10' },
-              { icon: <Film className="w-5 h-5" />, bg: 'bg-rose-50 text-rose-600', name: 'Netflix', cat: 'Subscriptions', amount: '- EUR 15.99' },
-            ].map(({ icon, bg, name, cat, amount }) => (
-              <div key={name} className="flex justify-between items-center gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-2xl ${bg} grid place-items-center shrink-0`}>{icon}</div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-800 truncate">{name}</p>
-                    <p className="text-[11px] text-slate-400 font-bold">{cat}</p>
-                  </div>
-                </div>
-                <span className="text-sm text-slate-900 font-black">{amount}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+        </motion.button>
+      </section>
+    </motion.div>
   );
 }
