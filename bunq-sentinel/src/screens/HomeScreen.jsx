@@ -1,113 +1,193 @@
-import { ShoppingBasket, TrainFront, Film, WalletCards, PiggyBank, Send, CreditCard, Landmark, Leaf, Sparkles } from 'lucide-react';
+import {
+  WalletCards, PiggyBank, ShoppingBasket, Film,
+  ArrowUp, ArrowDown, Plus, Sparkles, CreditCard,
+  TrendingUp,
+} from 'lucide-react';
+
+const ACCOUNTS = [
+  {
+    label: 'Main Account',
+    amount: '€ 4,200.00',
+    sub: 'NL99 BUNQ 1234 5678 90',
+    icon: <WalletCards className="w-5 h-5" />,
+    iconBg: 'bg-orange-500/20 text-orange-400',
+  },
+  {
+    label: 'Savings Goal',
+    amount: '€ 8,250.00',
+    sub: 'New Car',
+    icon: <PiggyBank className="w-5 h-5" />,
+    iconBg: 'bg-violet-500/20 text-violet-400',
+  },
+];
+
+const VIRTUAL_CARDS = [
+  { gradient: 'from-indigo-600 via-purple-600 to-violet-700', last4: '1234', type: 'Mastercard' },
+  { gradient: 'from-orange-500 via-rose-500 to-pink-600',     last4: '5678', type: 'Visa'       },
+  { gradient: 'from-emerald-500 via-teal-500 to-cyan-600',    last4: '9012', type: 'Mastercard' },
+];
+
+const TRANSACTIONS = [
+  {
+    icon: <ShoppingBasket className="w-5 h-5" />,
+    bg: 'bg-orange-500/15 text-orange-400',
+    name: 'Albert Heijn',
+    cat: 'Groceries',
+    amount: '- €34.50',
+  },
+  {
+    icon: <Film className="w-5 h-5" />,
+    bg: 'bg-rose-500/15 text-rose-400',
+    name: 'Anthropic',
+    cat: 'Subscriptions',
+    amount: '- €19.99',
+  },
+];
+
+const QUICK_ACTIONS = [
+  { label: 'Pay',     icon: <ArrowUp   className="w-6 h-6" />, color: 'bg-orange-500 shadow-orange-500/30' },
+  { label: 'Request', icon: <ArrowDown className="w-6 h-6" />, color: 'bg-blue-500 shadow-blue-500/30'    },
+  { label: 'Add',     icon: <Plus      className="w-6 h-6" />, color: 'bg-violet-500 shadow-violet-500/30' },
+];
 
 export default function HomeScreen({ onStartPayment, onForceAI }) {
   return (
-    <div className="screen-enter pb-24">
-      <div className="bunq-gradient text-white px-5 pt-5 pb-16 rounded-b-[2.2rem] relative overflow-hidden">
-        <div className="flex items-center justify-between text-xs font-bold opacity-90">
-          <span>Easy Money Account</span>
-          <span className="px-2.5 py-1 rounded-full bg-white/10">NL</span>
-        </div>
-        <p className="text-sm opacity-85 mt-6">Total Balance</p>
-        <div className="flex items-end justify-between gap-3 mt-1">
-          <h2 className="text-[39px] leading-none font-black tracking-normal">EUR 12,450</h2>
-          <button
-            onClick={onStartPayment}
-            className="w-12 h-12 rounded-2xl bg-white text-slate-950 grid place-items-center shadow-lg hover:scale-[1.03] transition"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+    <div className="screen-enter pb-8">
+
+      {/* ── Balance Hero ── */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-5">
+          <p className="text-[10px] font-bold text-white/35 uppercase tracking-[0.12em]">Total Balance</p>
+          <div className="mt-2 flex items-end gap-1">
+            <span className="text-[40px] font-black text-white leading-none tracking-tight">€ 12,450</span>
+            <span className="text-2xl font-black text-white/35 leading-none mb-0.5">.00</span>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[11px] font-bold text-emerald-400">+2.4% this month</span>
+          </div>
         </div>
       </div>
 
-      <div className="px-4 -mt-10 space-y-4 relative z-10">
+      {/* ── Quick Actions ── */}
+      <div className="px-5 mb-5">
+        <div className="grid grid-cols-3 gap-4">
+          {QUICK_ACTIONS.map(({ label, icon, color }, i) => (
+            <button
+              key={label}
+              onClick={i === 0 ? onStartPayment : undefined}
+              className="flex flex-col items-center gap-2"
+            >
+              <div className={`w-14 h-14 rounded-2xl ${color} shadow-lg grid place-items-center text-white transition hover:scale-105`}>
+                {icon}
+              </div>
+              <span className="text-[11px] font-bold text-white/50">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Finn Sentinel ── */}
+      <div className="px-5 mb-5">
         <button
           onClick={onForceAI}
-          className="w-full glass rounded-3xl p-4 soft-shadow border border-white/80 text-left hover:-translate-y-0.5 transition"
+          className="w-full rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-4 text-left hover:-translate-y-0.5 transition"
         >
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-950 text-white grid place-items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-orange-400 grid place-items-center shrink-0">
               <Sparkles className="w-5 h-5" />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-black text-slate-950">Finn Sentinel</p>
-                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">AI ON</span>
+                <p className="font-black text-white text-sm">Finn Sentinel</p>
+                <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
+                  AI ON
+                </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Ask Finn to check a suspicious payment, invoice, or marketplace chat before you send money.
+              <p className="text-[11px] text-white/35 mt-0.5 leading-snug">
+                Check any payment before you send money
               </p>
             </div>
           </div>
         </button>
+      </div>
 
+      {/* ── Accounts ── */}
+      <div className="px-5 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-black text-white">Accounts</h3>
+          <button className="text-[11px] font-bold text-white/35 hover:text-white/60 transition">See all</button>
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-            <div className="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 grid place-items-center mb-4">
-              <WalletCards className="w-5 h-5" />
-            </div>
-            <p className="text-[11px] text-slate-500 font-bold">Main Account</p>
-            <p className="font-black text-slate-950 mt-1">EUR 4,200</p>
-          </div>
-          <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-            <div className="w-9 h-9 rounded-2xl bg-violet-50 text-violet-600 grid place-items-center mb-4">
-              <PiggyBank className="w-5 h-5" />
-            </div>
-            <p className="text-[11px] text-slate-500 font-bold">Savings Goal</p>
-            <p className="font-black text-slate-950 mt-1">EUR 8,250</p>
-          </div>
-        </div>
-
-        <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-black text-slate-950">bunq shortcuts</h3>
-            <span className="text-[11px] font-bold text-slate-400">Finn ready</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { icon: <Send className="w-5 h-5" />, label: 'Pay', onClick: onStartPayment },
-              { icon: <CreditCard className="w-5 h-5" />, label: 'Cards', onClick: null },
-              { icon: <Landmark className="w-5 h-5" />, label: 'Save', onClick: null },
-              { icon: <Leaf className="w-5 h-5" />, label: 'Green', onClick: null },
-            ].map(({ icon, label, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                className="h-[70px] rounded-2xl bg-slate-50 hover:bg-slate-100 grid place-items-center text-slate-800 transition"
-              >
-                <span className="grid place-items-center gap-1 text-[11px] font-bold">
-                  {icon}{label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-3xl bg-white border border-slate-100 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-black text-slate-950">Recent</h3>
-            <button onClick={onForceAI} className="text-[11px] font-black bunq-text-gradient">Ask Finn</button>
-          </div>
-          <div className="space-y-4">
-            {[
-              { icon: <ShoppingBasket className="w-5 h-5" />, bg: 'bg-orange-50 text-orange-600', name: 'Albert Heijn', cat: 'Groceries', amount: '- EUR 34.50' },
-              { icon: <TrainFront className="w-5 h-5" />, bg: 'bg-sky-50 text-sky-600', name: 'NS International', cat: 'Travel', amount: '- EUR 22.10' },
-              { icon: <Film className="w-5 h-5" />, bg: 'bg-rose-50 text-rose-600', name: 'Netflix', cat: 'Subscriptions', amount: '- EUR 15.99' },
-            ].map(({ icon, bg, name, cat, amount }) => (
-              <div key={name} className="flex justify-between items-center gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-2xl ${bg} grid place-items-center shrink-0`}>{icon}</div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-800 truncate">{name}</p>
-                    <p className="text-[11px] text-slate-400 font-bold">{cat}</p>
-                  </div>
-                </div>
-                <span className="text-sm text-slate-900 font-black">{amount}</span>
+          {ACCOUNTS.map(({ label, amount, sub, icon, iconBg }) => (
+            <div key={label} className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-4">
+              <div className={`w-9 h-9 rounded-xl ${iconBg} grid place-items-center mb-3`}>
+                {icon}
               </div>
-            ))}
-          </div>
+              <p className="text-[10px] font-bold text-white/35 uppercase tracking-wide">{label}</p>
+              <p className="font-black text-white mt-1 text-[15px]">{amount}</p>
+              <p className="text-[10px] text-white/25 mt-1 font-mono truncate">{sub}</p>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* ── My Cards ── */}
+      <div className="mb-5">
+        <div className="px-5 flex items-center justify-between mb-3">
+          <h3 className="text-sm font-black text-white">My Cards</h3>
+          <button className="text-[11px] font-bold text-white/35 hover:text-white/60 transition">Manage</button>
+        </div>
+        <div className="flex gap-3 overflow-x-auto no-scrollbar px-5 pb-1">
+          {VIRTUAL_CARDS.map(({ gradient, last4, type }) => (
+            <div
+              key={last4}
+              className={`shrink-0 w-[195px] h-[115px] rounded-3xl bg-gradient-to-br ${gradient} p-4 flex flex-col justify-between shadow-xl relative overflow-hidden`}
+            >
+              {/* shine overlay */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+              <div className="flex items-center justify-between relative">
+                <CreditCard className="w-5 h-5 text-white/70" />
+                <span className="text-[10px] font-black text-white/60 uppercase tracking-wider">{type}</span>
+              </div>
+              <div className="relative">
+                <p className="text-white font-black text-sm tracking-[0.18em]">•••• {last4}</p>
+                <p className="text-[10px] text-white/50 mt-0.5 font-semibold uppercase tracking-widest">John Doe</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Recent Transactions ── */}
+      <div className="px-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-black text-white">Recent</h3>
+          <button onClick={onForceAI} className="text-[11px] font-black bunq-text-gradient">
+            Ask Finn
+          </button>
+        </div>
+        <div className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] overflow-hidden">
+          {TRANSACTIONS.map(({ icon, bg, name, cat, amount }, i) => (
+            <div
+              key={name}
+              className={`flex justify-between items-center gap-3 px-4 py-3.5 ${i < TRANSACTIONS.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 rounded-2xl ${bg} grid place-items-center shrink-0`}>
+                  {icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white truncate">{name}</p>
+                  <p className="text-[11px] text-white/35 font-bold">{cat}</p>
+                </div>
+              </div>
+              <span className="text-sm text-white font-black shrink-0">{amount}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
