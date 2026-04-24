@@ -1,34 +1,53 @@
 import { useState, useRef } from 'react';
-import { ImageUp, ScanSearch, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText, ImageUp, Loader2, ScanSearch } from 'lucide-react';
 
 export default function UploadScreen({ onAnalyze, onBack }) {
   const [previews, setPreviews] = useState([]);
+  const [files, setFiles] = useState([]);
   const [text, setText] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState('');
   const fileRef = useRef(null);
 
-  const isReady = previews.length > 0 || text.trim().length > 0;
+  const isReady = files.length > 0 || text.trim().length > 0;
 
   function handleFiles(e) {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => setPreviews(p => [...p, ev.target.result]);
-      reader.readAsDataURL(file);
-    });
+    const selectedFiles = Array.from(e.target.files || []);
+    setFiles(selectedFiles);
+    setError('');
+    setPreviews(selectedFiles.map(file => ({
+      name: file.name,
+      type: file.type,
+      src: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+    })));
   }
 
-  function handleAnalyze() {
+  async function handleAnalyze() {
     if (!isReady) return;
     setAnalyzing(true);
-    setTimeout(() => {
+    setError('');
+
+    const form = new FormData();
+    form.append('text', text);
+    files.forEach(file => form.append('files', file));
+
+    try {
+      const response = await fetch('http://localhost:8000/scam-check', {
+        method: 'POST',
+        body: form,
+      });
+
+      const verdict = await response.json();
+      if (!response.ok) {
+        throw new Error(verdict?.detail || verdict?.error || 'Scam check failed');
+      }
+
+      onAnalyze(verdict);
+    } catch (err) {
+      setError(err.message || 'Could not reach the scam check backend.');
+    } finally {
       setAnalyzing(false);
-      onAnalyze(89, [
-        'Invoice screenshot contains mismatched beneficiary details.',
-        'Messages use coercive timing: pay now, stay on the call, do not contact the bank.',
-        'Recipient IBAN is unrelated to the merchant name in the context.',
-      ]);
-    }, 900);
+    }
   }
 
   return (
@@ -46,15 +65,22 @@ export default function UploadScreen({ onAnalyze, onBack }) {
         <div className="w-14 h-14 rounded-3xl bunq-gradient text-white grid place-items-center mb-3">
           <ImageUp className="w-7 h-7" />
         </div>
-        <p className="text-sm font-black text-slate-800">Upload images</p>
-        <p className="text-xs text-slate-400 mt-1">WhatsApp, email, PDF screenshot</p>
-        <input ref={fileRef} type="file" className="hidden" accept="image/*" multiple onChange={handleFiles} />
+        <p className="text-sm font-black text-slate-800">Upload evidence</p>
+        <p className="text-xs text-slate-400 mt-1">Images, PDFs, or text files</p>
+        <input ref={fileRef} type="file" className="hidden" accept="image/*,.pdf,.txt,.md" multiple onChange={handleFiles} />
       </label>
 
       {previews.length > 0 && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar mt-3 shrink-0 pb-1">
-          {previews.map((src, i) => (
-            <img key={i} src={src} alt="preview" className="h-20 w-20 object-cover rounded-2xl border border-slate-200 shrink-0 shadow-sm" />
+          {previews.map((preview, i) => (
+            preview.src ? (
+              <img key={i} src={preview.src} alt={preview.name} className="h-20 w-20 object-cover rounded-2xl border border-slate-200 shrink-0 shadow-sm" />
+            ) : (
+              <div key={i} className="h-20 w-20 rounded-2xl border border-slate-200 bg-white shadow-sm shrink-0 p-2 flex flex-col items-center justify-center text-center">
+                <FileText className="w-6 h-6 text-slate-500 mb-1" />
+                <span className="text-[10px] font-bold text-slate-500 line-clamp-2 break-all">{preview.name}</span>
+              </div>
+            )
           ))}
         </div>
       )}
@@ -67,6 +93,13 @@ export default function UploadScreen({ onAnalyze, onBack }) {
         className="w-full p-4 rounded-[2rem] border border-slate-200 text-sm focus:ring-2 focus:ring-pink-500 outline-none resize-none shadow-sm transition mt-4 bg-white"
       />
 
+      {error && (
+        <div className="mt-3 rounded-2xl border border-rose-100 bg-rose-50 p-3 text-xs font-bold text-rose-800 flex gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <div className="mt-auto pt-5 space-y-3 shrink-0">
         <button
           onClick={handleAnalyze}
@@ -74,7 +107,7 @@ export default function UploadScreen({ onAnalyze, onBack }) {
           className={`w-full bunq-gradient text-white font-black py-4 rounded-3xl transition-opacity flex justify-center items-center gap-2 ${!isReady || analyzing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {analyzing
-            ? <><Loader2 className="w-5 h-5 animate-spin" />Analyzing...</>
+            ? <><Loader2 className="w-5 h-5 animate-spin" />Checking backend...</>
             : <><ScanSearch className="w-5 h-5" />Analyze with Finn</>
           }
         </button>

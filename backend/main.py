@@ -3,12 +3,24 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from llm_content_handler import LlmContentHandler
 from payment_handler import PaymentHandler
 from schemas import PaymentRequest, PaymentResponse
 
 app = FastAPI(title="Hackathon Backend", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 _payments = PaymentHandler()
 _llm_content = LlmContentHandler()

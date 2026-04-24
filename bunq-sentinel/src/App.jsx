@@ -34,6 +34,7 @@ export default function App() {
 
   const [riskScore, setRiskScore] = useState(89);
   const [riskReasons, setRiskReasons] = useState([]);
+  const [analysisVerdict, setAnalysisVerdict] = useState(null);
 
   function nav(to) {
     setPrevScreen(screen);
@@ -48,6 +49,7 @@ export default function App() {
     setIban('');
     setAmount('');
     setDescription('');
+    setAnalysisVerdict(null);
   }
 
   function goBack() {
@@ -67,11 +69,36 @@ export default function App() {
     if (trustedIbans.has(normalised)) { alert('Payment processed. This IBAN is trusted.'); goHome(); return; }
 
     if (isAudioListening) {
-      showResult(96, [
-        'Call pressure detected: urgent transfer requested while you were on the phone.',
-        'Voice stress pattern increased when payment details were discussed.',
-        'Recipient is not in your trusted bunq payment history.',
-      ]);
+      showResult({
+        risk_level: 'high',
+        risk_score: 96,
+        scam_type: 'urgency_pressure',
+        confidence: 'high',
+        headline: 'Call pressure detected during this payment.',
+        reasons: [
+          {
+            dimension: 'contextual',
+            signal: 'call_pressure',
+            headline: 'Pressure during active call',
+            detail: 'The transfer was started while the simulated call protection was active.',
+            severity: 'high',
+          },
+          {
+            dimension: 'behavioral',
+            signal: 'new_payee',
+            headline: 'Recipient not trusted yet',
+            detail: 'The recipient is not in your trusted bunq payment history.',
+            severity: 'medium',
+          },
+        ],
+        safe_actions: [
+          {
+            action_id: 'delay_payment',
+            label: 'Pause payment',
+            rationale: 'End the call and verify the request through a trusted channel.',
+          },
+        ],
+      });
     } else if (normalised === FLAGGED_IBAN) {
       nav('flagged');
     } else {
@@ -80,9 +107,20 @@ export default function App() {
     }
   }
 
-  function showResult(score, reasons) {
-    setRiskScore(score);
-    setRiskReasons(reasons);
+  function showResult(verdictOrScore, reasons = []) {
+    const verdict = typeof verdictOrScore === 'object'
+      ? verdictOrScore
+      : {
+          risk_level: verdictOrScore >= 70 ? 'high' : verdictOrScore >= 35 ? 'medium' : 'low',
+          risk_score: verdictOrScore,
+          headline: 'Finn completed the scam check.',
+          reasons,
+          safe_actions: [],
+        };
+
+    setAnalysisVerdict(verdict);
+    setRiskScore(verdict.risk_score ?? 0);
+    setRiskReasons(verdict.reasons ?? []);
     nav('result');
   }
 
@@ -168,12 +206,13 @@ export default function App() {
             )}
             {screen === 'upload' && (
               <UploadScreen
-                onAnalyze={(score, reasons) => showResult(score, reasons)}
+                onAnalyze={showResult}
                 onBack={goBack}
               />
             )}
             {screen === 'result' && (
               <AnalysisResultScreen
+                verdict={analysisVerdict}
                 score={riskScore}
                 reasons={riskReasons}
                 onStop={goHome}
