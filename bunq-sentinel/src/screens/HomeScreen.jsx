@@ -134,7 +134,6 @@ export default function HomeScreen() {
   const [selectedWardenPayment, setSelectedWardenPayment] = useState(null);
   const [fraudTxCanceled, setFraudTxCanceled] = useState(false);
   const [transactions, setTransactions] = useState(TRANSACTIONS);
-  const [paymentNotice, setPaymentNotice] = useState(null);
   const [payOpen, setPayOpen] = useState(false);
   const [payIban, setPayIban] = useState('');
   const [payAmount, setPayAmount] = useState('');
@@ -168,12 +167,14 @@ export default function HomeScreen() {
     setPayAmount('');
     setPayDescription('');
     setFinnResult(null);
-    setPaymentNotice(null);
   }, []);
 
   const closePay = useCallback(() => {
     setPayOpen(false);
     setFinnResult(null);
+    setPayIban('');
+    setPayAmount('');
+    setPayDescription('');
   }, []);
 
   const removeAssistFile = useCallback((key) => {
@@ -271,40 +272,21 @@ export default function HomeScreen() {
       setWardenPayments((prev) => [payment, ...prev]);
       setSelectedWardenPayment(payment);
       setFraudTxCanceled(false);
-      setPaymentNotice({
-        status: 'flagged',
-        title: 'Finn raised a flag',
-        body: 'The payment is now in a 24h safety window. Warden can investigate it.',
-      });
-      setPayOpen(false);
-      setFinnResult(null);
-      setPayIban('');
-      setPayAmount('');
-      setPayDescription('');
-      return;
+    } else {
+      setTransactions((prev) => [
+        {
+          id: payment.id,
+          icon: <ArrowUp className="w-5 h-5" />,
+          bg: 'bg-emerald-500/15 text-emerald-400',
+          name: payment.recipient,
+          cat: payment.iban,
+          amount: `- ${payment.amount}`,
+        },
+        ...prev,
+      ]);
     }
 
-    setTransactions((prev) => [
-      {
-        id: payment.id,
-        icon: <ArrowUp className="w-5 h-5" />,
-        bg: 'bg-emerald-500/15 text-emerald-400',
-        name: payment.recipient,
-        cat: payment.iban,
-        amount: `- ${payment.amount}`,
-      },
-      ...prev,
-    ]);
-    setPaymentNotice({
-      status: 'clear',
-      title: 'Payment added',
-      body: 'Finn found no strong risk signal, so it was added to Recent.',
-    });
-    setPayOpen(false);
-    setFinnResult(null);
-    setPayIban('');
-    setPayAmount('');
-    setPayDescription('');
+    setFinnResult({ status: scan.flagged ? 'flagged' : 'clear', payment });
   }, [payAmount, payDescription, payIban]);
 
   const cancelFraudTransaction = useCallback(() => {
@@ -338,45 +320,6 @@ export default function HomeScreen() {
       </div>
 
       {/* ── Quick Actions ── */}
-      {paymentNotice && (
-        <div className="px-5 mb-5">
-          <div className={`rounded-[1.7rem] border px-4 py-4 flex items-start gap-3 ${
-            paymentNotice.status === 'flagged'
-              ? 'bg-rose-500/10 border-rose-500/25'
-              : 'bg-emerald-500/10 border-emerald-500/25'
-          }`}>
-            <div className={`w-10 h-10 rounded-2xl grid place-items-center shrink-0 ${
-              paymentNotice.status === 'flagged'
-                ? 'bg-rose-500/15 text-rose-300'
-                : 'bg-emerald-500/15 text-emerald-300'
-            }`}>
-              {paymentNotice.status === 'flagged' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white">{paymentNotice.title}</p>
-              <p className="text-[12px] text-white/55 font-semibold mt-1 leading-snug">{paymentNotice.body}</p>
-              {paymentNotice.status === 'flagged' && (
-                <button
-                  type="button"
-                  onClick={() => openAssist('flagged')}
-                  className="mt-3 text-[11px] font-black bunq-text-gradient"
-                >
-                  Let Warden look into it
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setPaymentNotice(null)}
-              className="w-8 h-8 rounded-full bg-white/10 grid place-items-center text-white/60 hover:text-white transition shrink-0"
-              aria-label="Dismiss"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="px-5 mb-5">
         <div className="grid grid-cols-4 gap-3">
           {QUICK_ACTIONS.map(({ label, action, icon, color }) => (
