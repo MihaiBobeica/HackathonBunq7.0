@@ -62,7 +62,7 @@ The bunq sandbox is pre-seeded with 11 recipients. All IBANs are real sandbox ac
 
 ### Low-risk vs High-risk scenarios
 
-The app combines two risk layers: a **local Finn scan** that runs in the browser when you click _Add payment_, and the **Warden** (Claude-powered) check you launch from the orange button or the flagged-payment alert.
+The app combines two risk layers: a **local Finn scan** that runs in the browser when you click _Add payment_, and the **Warden** (Claude-powered) check when you press the orange button or the flagged-payment alert.
 
 #### Pay flow → expected to be **clear**
 
