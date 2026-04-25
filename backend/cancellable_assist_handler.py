@@ -187,10 +187,9 @@ class CancellableAssistHandler:
         normalized_mode = "self" if mode == "self" else "flagged"
         if normalized_mode == "flagged":
             scenario = (
-                "Scenario: outbound payment was already made, bunqAI flagged it, "
-                "and the payment is still revocable within the safety window. "
-                "Recipient IBAN: NL99 BUNQ 0123 4567 89. "
-                "Transaction context: marketplace deposit, unknown beneficiary."
+                "Scenario: an outbound payment was already made, bunq Finn flagged it, "
+                "and the payment is still revocable within the 24h safety window. "
+                "Use the payment details in the user context."
             )
         else:
             scenario = (
