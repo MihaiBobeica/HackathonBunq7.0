@@ -14,8 +14,7 @@ import UploadScreen         from './screens/UploadScreen';
 import AnalysisResultScreen from './screens/AnalysisResultScreen';
 import TrustScreen          from './screens/TrustScreen';
 import SuccessScreen        from './screens/SuccessScreen';
-
-const FLAGGED_IBAN = 'NL99 BUNQ 0123 4567 89';
+import { FLAGGED_IBAN }     from './constants';
 
 const SCREEN_TITLES = {
   home:    'Home',

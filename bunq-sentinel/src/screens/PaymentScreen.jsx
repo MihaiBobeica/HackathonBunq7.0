@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { ShieldCheck, FileSearch, Send, Shield, WandSparkles } from 'lucide-react';
-
-const FLAGGED_IBAN = 'NL99 BUNQ 0123 4567 89';
+import { FLAGGED_IBAN } from '../constants';
 const spring = { type: 'spring', stiffness: 420, damping: 28 };
 
 export default function PaymentScreen({

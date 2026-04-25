@@ -1,8 +1,11 @@
+import { useCallback, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   WalletCards, PiggyBank, ShoppingBasket, Film,
-  ArrowUp, ArrowDown, Plus, Sparkles, CreditCard,
-  TrendingUp,
+  ArrowUp, ArrowDown, Plus, CreditCard,
+  TrendingUp, AlertTriangle, X, Loader2, FileText, ShieldAlert,
 } from 'lucide-react';
+import { FLAGGED_IBAN } from '../constants';
 
 const ACCOUNTS = [
   {
@@ -50,7 +53,124 @@ const QUICK_ACTIONS = [
   { label: 'Add',     icon: <Plus      className="w-6 h-6" />, color: 'bg-violet-500 shadow-violet-500/30' },
 ];
 
+// Default dev API (override with VITE_API_URL)
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+
+const spring = { type: 'spring', stiffness: 420, damping: 28 };
+
+const OUTCOME_HEADLINES = {
+  no_strong_scam_presence: 'No strong scam presence detected',
+  scam_identified: 'Scam identified',
+};
+
+const RISK_STYLES = {
+  Low: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25',
+  Medium: 'text-amber-200 bg-amber-500/10 border-amber-500/25',
+  High: 'text-rose-200 bg-rose-500/10 border-rose-500/25',
+};
+
+function fileKey(f) {
+  return `${f.name}-${f.size}-${f.lastModified}`;
+}
+
 export default function HomeScreen({ onStartPayment, onForceAI }) {
+  const [assistOpen, setAssistOpen] = useState(false);
+  const [assistText, setAssistText] = useState('');
+  const [assistFiles, setAssistFiles] = useState([]);
+  const [assistSubmitting, setAssistSubmitting] = useState(false);
+  const [assistError, setAssistError] = useState('');
+  const [assistResult, setAssistResult] = useState(null);
+  const [fraudTxVisible, setFraudTxVisible] = useState(true);
+  const [fraudTxCanceled, setFraudTxCanceled] = useState(false);
+  const assistFileRef = useRef(null);
+
+  const openAssist = useCallback(() => {
+    setAssistOpen(true);
+    setAssistError('');
+    setAssistResult(null);
+  }, []);
+
+  const closeAssist = useCallback(() => {
+    setAssistOpen(false);
+    setAssistSubmitting(false);
+    setAssistError('');
+    setAssistResult(null);
+    setAssistText('');
+    setAssistFiles([]);
+    if (assistFileRef.current) assistFileRef.current.value = '';
+  }, []);
+
+  const removeAssistFile = useCallback((key) => {
+    setAssistFiles((prev) => prev.filter((x) => fileKey(x) !== key));
+  }, []);
+
+  const onAssistFilesChange = useCallback((e) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    setAssistFiles((prev) => {
+      const seen = new Set(prev.map(fileKey));
+      const next = [...prev];
+      for (const f of picked) {
+        const k = fileKey(f);
+        if (!seen.has(k)) {
+          seen.add(k);
+          next.push(f);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const submitAssist = useCallback(async () => {
+    setAssistError('');
+    setAssistSubmitting(true);
+    const form = new FormData();
+    form.append('text', assistText);
+    for (const f of assistFiles) {
+      form.append('files', f);
+    }
+    try {
+      const res = await fetch(`${API_BASE}/cancellable-assist`, {
+        method: 'POST',
+        body: form,
+      });
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = null;
+      }
+      if (!res.ok) {
+        let msg = (data && (data.detail || data.message)) || raw || `Request failed (${res.status})`;
+        if (Array.isArray(data?.detail)) {
+          msg = data.detail.map((d) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d))).join('; ');
+        }
+        setAssistError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        return;
+      }
+      setAssistResult(data);
+    } catch (err) {
+      setAssistError(err?.message || 'Network error — is the backend running?');
+    } finally {
+      setAssistSubmitting(false);
+    }
+  }, [assistText, assistFiles]);
+
+  const isScamIdentified = assistResult?.outcome === 'scam_identified';
+  const riskClass = RISK_STYLES[assistResult?.risk_factor] || 'text-white/70 bg-white/10 border-white/10';
+
+  const cancelFraudTransaction = useCallback(() => {
+    setFraudTxVisible(false);
+    setFraudTxCanceled(true);
+    setAssistOpen(false);
+    setAssistResult(null);
+    setAssistText('');
+    setAssistFiles([]);
+    setAssistError('');
+    if (assistFileRef.current) assistFileRef.current.value = '';
+  }, []);
+
   return (
     <div className="screen-enter pb-8">
 
@@ -87,31 +207,6 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
         </div>
       </div>
 
-      {/* ── Finn Sentinel ── */}
-      <div className="px-5 mb-5">
-        <button
-          onClick={onForceAI}
-          className="w-full rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-4 text-left hover:-translate-y-0.5 transition"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-orange-400 grid place-items-center shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-black text-white text-sm">Finn Sentinel</p>
-                <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
-                  AI ON
-                </span>
-              </div>
-              <p className="text-[11px] text-white/35 mt-0.5 leading-snug">
-                Check any payment before you send money
-              </p>
-            </div>
-          </div>
-        </button>
-      </div>
-
       {/* ── Accounts ── */}
       <div className="px-5 mb-5">
         <div className="flex items-center justify-between mb-3">
@@ -132,6 +227,63 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
         </div>
       </div>
 
+      {/* ── Fraudulent transactions ── */}
+      <div className="px-5 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-black text-white">Fraudulent transactions</h3>
+          {fraudTxVisible && (
+            <button
+              type="button"
+              onClick={openAssist}
+              className="text-[11px] font-bold text-white/35 hover:text-white/60 transition"
+            >
+              View all
+            </button>
+          )}
+        </div>
+        {fraudTxVisible ? (
+          <div className="rounded-[1.7rem] bg-[#19191b] border border-white/[0.08] overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-white/35 uppercase tracking-[0.12em]">Revocable</p>
+                <p className="text-sm font-black text-white mt-0.5">1 flagged payment</p>
+              </div>
+              <span className="text-[10px] font-black text-rose-200 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">
+                Action needed
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={openAssist}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-white/[0.06] border border-white/[0.08] grid place-items-center shrink-0">
+                <div className="w-6 h-6 rounded-full bg-rose-500/15 text-rose-300 grid place-items-center">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-white truncate">Marktplaats Escrow BV</p>
+                <p className="text-[11px] text-white/35 font-semibold truncate">Marketplace deposit · {FLAGGED_IBAN}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-black text-white">- €1,500.00</p>
+                <p className="text-[10px] text-white/35 font-bold mt-0.5">2h ago</p>
+              </div>
+            </button>
+          </div>
+        ) : fraudTxCanceled ? (
+          <div className="rounded-[1.7rem] bg-[#19191b] border border-emerald-500/20 px-4 py-3.5">
+            <p className="text-sm font-black text-emerald-300">Payment revoked</p>
+            <p className="text-[11px] text-white/35 font-semibold mt-1">No flagged payments.</p>
+          </div>
+        ) : (
+          <div className="rounded-[1.7rem] bg-[#19191b] border border-white/[0.06] px-4 py-3.5">
+            <p className="text-sm font-black text-white/70">No fraudulent transactions</p>
+          </div>
+        )}
+      </div>
+
       {/* ── My Cards ── */}
       <div className="mb-5">
         <div className="px-5 flex items-center justify-between mb-3">
@@ -144,7 +296,6 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
               key={last4}
               className={`shrink-0 w-[195px] h-[115px] rounded-3xl bg-gradient-to-br ${gradient} p-4 flex flex-col justify-between shadow-xl relative overflow-hidden`}
             >
-              {/* shine overlay */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
               <div className="flex items-center justify-between relative">
                 <CreditCard className="w-5 h-5 text-white/70" />
@@ -188,6 +339,221 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
         </div>
       </div>
 
+      <AnimatePresence>
+        {assistOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[300] flex items-end justify-center sm:items-center p-4 bg-black/65"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assist-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={spring}
+              className="w-full max-w-[min(100%,380px)] max-h-[min(86vh,720px)] rounded-[2rem] bg-[#141414] border border-white/[0.08] shadow-[0_40px_100px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden"
+            >
+              <div className="shrink-0 flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-9 h-9 rounded-2xl bg-orange-500/15 text-orange-400 grid place-items-center shrink-0">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <h2 id="assist-title" className="text-[15px] font-black text-white truncate">
+                    {assistResult ? 'Guidance' : "Don't let yourself be scammed"}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeAssist}
+                  className="w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white hover:bg-white/15 transition shrink-0"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 py-4 space-y-4">
+                {!assistResult && (
+                  <>
+                    <p className="text-[12px] text-white/45 font-semibold leading-relaxed">
+                      We may be able to determine if this transaction is fraudulent. Provide us with more context to help us help you.
+                    </p>
+                    <p className="text-[12px] text-white/45 font-semibold leading-relaxed">
+                      Drop conversation screenshots, invoices, or any other context related to this transfer.
+                    </p>
+                    <textarea
+                      rows={4}
+                      value={assistText}
+                      onChange={(e) => setAssistText(e.target.value)}
+                      placeholder="Why you sent money, what they told you, what concerns you..."
+                      className="w-full p-4 rounded-2xl bg-[#1c1c1e] border border-white/[0.06] text-sm text-white placeholder-white/25 focus:ring-2 focus:ring-orange-500/40 outline-none resize-none font-semibold"
+                    />
+                    <input
+                      ref={assistFileRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
+                      multiple
+                      onChange={onAssistFilesChange}
+                    />
+                    <motion.button
+                      type="button"
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={spring}
+                      onClick={() => assistFileRef.current?.click()}
+                      className="w-full rounded-2xl border border-dashed border-white/15 py-4 px-4 text-left hover:border-white/25 transition"
+                    >
+                      <p className="text-xs font-black text-white">Upload evidence</p>
+                      <p className="text-[11px] text-white/35 font-semibold mt-1">JPEG, PNG, or PDF only</p>
+                    </motion.button>
+                    {assistFiles.length > 0 && (
+                      <ul className="space-y-2">
+                        {assistFiles.map((f) => {
+                          const k = fileKey(f);
+                          const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+                          return (
+                            <li
+                              key={k}
+                              className="flex items-center gap-3 rounded-2xl bg-[#1c1c1e] border border-white/[0.06] px-3 py-2.5"
+                            >
+                              <div className="w-9 h-9 rounded-xl bg-white/10 text-white/70 grid place-items-center shrink-0">
+                                {isPdf ? <FileText className="w-4 h-4" /> : <span className="text-[10px] font-black">IMG</span>}
+                              </div>
+                              <span className="text-[11px] font-bold text-white/80 truncate flex-1 min-w-0">{f.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeAssistFile(k)}
+                                className="text-[11px] font-black text-rose-400 shrink-0 px-2 py-1 rounded-lg hover:bg-rose-500/10"
+                              >
+                                Remove
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
+                )}
+
+                {assistResult && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl bg-[#1c1c1e] border border-white/[0.08] px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black text-white/35 uppercase tracking-[0.1em]">
+                            Assessment
+                          </p>
+                          <h3 className="text-lg font-black text-white mt-1 leading-tight">
+                            {isScamIdentified ? assistResult.scam_type || 'Scam identified' : OUTCOME_HEADLINES[assistResult.outcome]}
+                          </h3>
+                        </div>
+                        <span className={`text-[10px] font-black border px-2 py-1 rounded-full shrink-0 ${riskClass}`}>
+                          {assistResult.risk_factor || 'Unknown'} risk
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-white/[0.04] border border-white/[0.06] px-4 py-3">
+                      <p className="text-[10px] font-black text-white/35 uppercase tracking-[0.1em]">
+                        {OUTCOME_HEADLINES[assistResult.outcome] || 'Assessment'}
+                      </p>
+                      <p className="text-sm font-bold text-white/80 mt-2 leading-snug">
+                        {assistResult.summary}
+                      </p>
+                    </div>
+
+                    {isScamIdentified && assistResult.reasons?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-white/35 uppercase tracking-wide mb-2">3 reasons</p>
+                        <ul className="space-y-2">
+                          {assistResult.reasons.slice(0, 3).map((reason, i) => (
+                            <li key={reason} className="flex gap-2 text-[12px] text-white/65 font-semibold">
+                              <span className="w-5 h-5 rounded-full bg-rose-500/10 text-rose-200 grid place-items-center text-[10px] font-black shrink-0">
+                                {i + 1}
+                              </span>
+                              <span>{reason}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className={`rounded-2xl border px-4 py-4 ${isScamIdentified ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.06]'}`}>
+                      <p className="text-[10px] font-black text-white/50 uppercase tracking-wide">Recommended</p>
+                      <p className="text-sm font-black text-white mt-2 leading-relaxed">
+                        {assistResult.recommended_action}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {assistError && (
+                  <p className="text-[12px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">
+                    {assistError}
+                  </p>
+                )}
+              </div>
+
+              <div className="shrink-0 px-5 pb-5 pt-2 space-y-2 border-t border-white/[0.06]">
+                {!assistResult ? (
+                  <>
+                    <motion.button
+                      type="button"
+                      disabled={assistSubmitting}
+                      whileHover={!assistSubmitting ? { y: -2 } : undefined}
+                      whileTap={!assistSubmitting ? { scale: 0.98 } : undefined}
+                      transition={spring}
+                      onClick={submitAssist}
+                      className={`w-full bunq-gradient text-white font-black py-4 rounded-2xl flex justify-center items-center gap-2 rainbow-shadow ${assistSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {assistSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Analyzing…
+                        </>
+                      ) : (
+                        'Get guidance'
+                      )}
+                    </motion.button>
+                    <button
+                      type="button"
+                      onClick={closeAssist}
+                      className="w-full py-3.5 rounded-2xl bg-white/10 text-white/80 font-black text-sm hover:bg-white/14 transition"
+                    >
+                      Close
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {isScamIdentified && (
+                      <button
+                        type="button"
+                        onClick={cancelFraudTransaction}
+                        className="w-full bg-rose-500 text-white font-black py-4 rounded-2xl shadow-[0_20px_50px_rgba(244,63,94,0.22)]"
+                      >
+                        Cancel transaction
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={closeAssist}
+                      className="w-full py-3.5 rounded-2xl bg-white/10 text-white/80 font-black text-sm hover:bg-white/14 transition"
+                    >
+                      {isScamIdentified ? 'Not now (proceed with caution)' : 'Done'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
