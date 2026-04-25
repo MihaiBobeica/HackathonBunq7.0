@@ -22,10 +22,16 @@ Start both services:
 docker compose up --build
 ```
 
-Open:
+Open the app at:
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://127.0.0.1:8000`
+```text
+http://localhost:15173
+```
+Backend docs:
+
+```text
+http://127.0.0.1:18000/docs
+```
 
 Stop the stack:
 
@@ -35,4 +41,6 @@ docker compose down
 
 ## Notes
 
+- The frontend is configured to call `http://127.0.0.1:18000`.
+- If you change the backend host port in `docker-compose.yml`, also update `VITE_API_URL`.
 - Do not commit `backend/.env`; it contains secrets and is ignored by git.

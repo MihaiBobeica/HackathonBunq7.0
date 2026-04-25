@@ -5,14 +5,17 @@ services:
     env_file:
       - ./backend/.env
     ports:
-      - "8000:8000"
+      # Host 18000 -> container 8000
+      - "18000:8000"
 
   frontend:
     build:
       context: ./bunq-sentinel
     environment:
-      VITE_API_URL: http://127.0.0.1:8000
+      # Browser calls the backend through the host port.
+      VITE_API_URL: http://127.0.0.1:18000
     ports:
-      - "5173:5173"
+      # Host 15173 -> container 5173 (Vite)
+      - "15173:5173"
     depends_on:
       - backend
