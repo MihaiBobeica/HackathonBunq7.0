@@ -62,6 +62,7 @@ const spring = { type: 'spring', stiffness: 420, damping: 28 };
 
 const OUTCOME_HEADLINES = {
   no_strong_scam_presence: 'No strong scam presence detected',
+  legitimate_consistent_evidence: 'Consistent with invoice',
   scam_identified: 'Scam identified',
 };
 
@@ -244,7 +245,9 @@ export default function HomeScreen() {
   }, [assistText, assistFiles, assistMode, selectedWardenPayment]);
 
   const isScamIdentified = assistResult?.outcome === 'scam_identified';
-  const riskClass = RISK_STYLES[assistResult?.risk_factor] || 'text-white/70 bg-white/10 border-white/10';
+  const isConsistentEvidence = assistResult?.outcome === 'legitimate_consistent_evidence';
+  const displayedRisk = isConsistentEvidence ? 'Low' : assistResult?.risk_factor;
+  const riskClass = RISK_STYLES[displayedRisk] || 'text-white/70 bg-white/10 border-white/10';
   const isFlaggedReview = assistMode === 'flagged';
   const isPaymentReady = payIban.trim() && payAmount.trim();
 
@@ -840,7 +843,7 @@ export default function HomeScreen() {
                           </h3>
                         </div>
                         <span className={`text-[10px] font-black border px-2 py-1 rounded-full shrink-0 ${riskClass}`}>
-                          {assistResult.risk_factor || 'Unknown'} risk
+                          {displayedRisk || 'Unknown'} risk
                         </span>
                       </div>
                     </div>
@@ -870,7 +873,7 @@ export default function HomeScreen() {
                       </div>
                     )}
 
-                    <div className={`rounded-2xl border px-4 py-4 ${isScamIdentified ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.06]'}`}>
+                    <div className={`rounded-2xl border px-4 py-4 ${isScamIdentified ? 'bg-rose-500/10 border-rose-500/25' : isConsistentEvidence ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.04] border-white/[0.06]'}`}>
                       <p className="text-[10px] font-black text-white/50 uppercase tracking-wide">Recommended</p>
                       <p className="text-sm font-black text-white mt-2 leading-relaxed">
                         {assistResult.recommended_action}
