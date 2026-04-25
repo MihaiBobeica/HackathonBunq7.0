@@ -50,7 +50,6 @@ const QUICK_ACTIONS = [
   { label: 'Add',     icon: <Plus      className="w-6 h-6" />, color: 'bg-violet-500 shadow-violet-500/30' },
 ];
 
-export default function HomeScreen({ onStartPayment, onForceAI }) {
   return (
     <div className="screen-enter pb-8">
 
