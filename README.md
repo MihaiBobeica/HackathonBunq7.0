@@ -109,3 +109,5 @@ Sample text to paste:
 ### Sandbox top-up
 
 The main account starts at €0. Click the **Sandbox +€500** pill on the balance hero (visible only when the bunq API is reachable) to request funds from `sugardaddy@bunq.com`. Repeat as needed.
+
+There are some example for documents in the examples folder that you can use to test out the multimodal component of Warden.
