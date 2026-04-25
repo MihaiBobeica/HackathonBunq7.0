@@ -125,6 +125,7 @@ const spring = { type: 'spring', stiffness: 420, damping: 28 };
 
 const OUTCOME_HEADLINES = {
   no_strong_scam_presence: 'No strong scam presence detected',
+  legitimate_consistent_evidence: 'Consistent with invoice',
   scam_identified: 'Scam identified',
 };
 
@@ -197,7 +198,6 @@ export default function HomeScreen() {
   const [selectedWardenPayment, setSelectedWardenPayment] = useState(null);
   const [fraudTxCanceled, setFraudTxCanceled] = useState(false);
   const [transactions, setTransactions] = useState(TRANSACTIONS);
-  const [paymentNotice, setPaymentNotice] = useState(null);
   const [payOpen, setPayOpen] = useState(false);
   const [payIban, setPayIban] = useState('');
   const [payAmount, setPayAmount] = useState('');
@@ -226,7 +226,8 @@ export default function HomeScreen() {
     setFunding(true);
     try {
       await sandboxFund(accountId, '500.00');
-      // Sugar daddy responds in ~1-3s; poll the balance briefly.
+      // Sugar daddy responds in ~1-3s; poll the balance briefly. The balance
+      // jump in the hero is the success signal — no toast needed.
       for (let i = 0; i < 5; i++) {
         await new Promise((r) => setTimeout(r, 1500));
         const refreshed = await getAccounts();
@@ -235,26 +236,12 @@ export default function HomeScreen() {
           if (refreshed[0].balance > before) {
             setBunqAccounts(refreshed);
             await refreshTransactions(refreshed[0].id);
-            setPaymentNotice({
-              status: 'clear',
-              title: 'Sandbox topped up',
-              body: `+€500 from sugardaddy@bunq.com.`,
-            });
             return;
           }
         }
       }
-      setPaymentNotice({
-        status: 'clear',
-        title: 'Top-up requested',
-        body: 'Sugardaddy is processing — pull to refresh in a moment.',
-      });
     } catch (err) {
-      setPaymentNotice({
-        status: 'flagged',
-        title: 'Top-up failed',
-        body: err?.message || 'Could not request from sandbox sugardaddy.',
-      });
+      console.warn('Sandbox fund failed:', err?.message || err);
     } finally {
       setFunding(false);
     }
@@ -318,12 +305,14 @@ export default function HomeScreen() {
     setPayAmount('');
     setPayDescription('');
     setFinnResult(null);
-    setPaymentNotice(null);
   }, []);
 
   const closePay = useCallback(() => {
     setPayOpen(false);
     setFinnResult(null);
+    setPayIban('');
+    setPayAmount('');
+    setPayDescription('');
   }, []);
 
   const removeAssistFile = useCallback((key) => {
@@ -394,7 +383,9 @@ export default function HomeScreen() {
   }, [assistText, assistFiles, assistMode, selectedWardenPayment]);
 
   const isScamIdentified = assistResult?.outcome === 'scam_identified';
-  const riskClass = RISK_STYLES[assistResult?.risk_factor] || 'text-white/70 bg-white/10 border-white/10';
+  const isConsistentEvidence = assistResult?.outcome === 'legitimate_consistent_evidence';
+  const displayedRisk = isConsistentEvidence ? 'Low' : assistResult?.risk_factor;
+  const riskClass = RISK_STYLES[displayedRisk] || 'text-white/70 bg-white/10 border-white/10';
   const isFlaggedReview = assistMode === 'flagged';
   const isPaymentReady = payIban.trim() && payAmount.trim();
 
@@ -422,20 +413,26 @@ export default function HomeScreen() {
       setWardenPayments((prev) => [payment, ...prev]);
       setSelectedWardenPayment(payment);
       setFraudTxCanceled(false);
-      setPaymentNotice({
-        status: 'flagged',
-        title: 'Finn raised a flag',
-        body: 'The payment is now in a 24h safety window. Warden can investigate it.',
-      });
-      setPayOpen(false);
-      setFinnResult(null);
-      setPayIban('');
-      setPayAmount('');
-      setPayDescription('');
-      return;
+    } else if (!bunqLive) {
+      // In mock mode, optimistically add to the local Recent list.
+      // In live mode we let refreshTransactions pull the real list from bunq.
+      setTransactions((prev) => [
+        {
+          id: payment.id,
+          icon: <ArrowUp className="w-5 h-5" />,
+          bg: 'bg-emerald-500/15 text-emerald-400',
+          name: payment.recipient,
+          cat: payment.iban,
+          amount: `- ${payment.amount}`,
+        },
+        ...prev,
+      ]);
     }
 
-    if (bunqLive && primaryAccount && amountNumber > 0) {
+    let resultStatus = scan.flagged ? 'flagged' : 'clear';
+    let resultPayment = payment;
+
+    if (!scan.flagged && bunqLive && primaryAccount && amountNumber > 0) {
       setPaySubmitting(true);
       try {
         await createBunqPayment({
@@ -451,46 +448,18 @@ export default function HomeScreen() {
           const refreshed = await getAccounts();
           if (Array.isArray(refreshed) && refreshed.length > 0) setBunqAccounts(refreshed);
         } catch { /* ignore balance refresh failure */ }
-        setPaymentNotice({
-          status: 'clear',
-          title: 'Payment sent',
-          body: 'Finn found no strong risk signal. Sent through bunq.',
-        });
       } catch (err) {
-        setPaymentNotice({
-          status: 'flagged',
-          title: 'bunq rejected the payment',
-          body: err?.message || 'Could not reach bunq.',
-        });
-        setPaySubmitting(false);
-        return;
+        resultStatus = 'flagged';
+        resultPayment = {
+          ...payment,
+          reasons: [err?.message || 'bunq rejected the payment'],
+        };
       } finally {
         setPaySubmitting(false);
       }
-    } else {
-      setTransactions((prev) => [
-        {
-          id: payment.id,
-          icon: <ArrowUp className="w-5 h-5" />,
-          bg: 'bg-emerald-500/15 text-emerald-400',
-          name: payment.recipient,
-          cat: payment.iban,
-          amount: `- ${payment.amount}`,
-        },
-        ...prev,
-      ]);
-      setPaymentNotice({
-        status: 'clear',
-        title: 'Payment added',
-        body: 'Finn found no strong risk signal, so it was added to Recent.',
-      });
     }
 
-    setPayOpen(false);
-    setFinnResult(null);
-    setPayIban('');
-    setPayAmount('');
-    setPayDescription('');
+    setFinnResult({ status: resultStatus, payment: resultPayment });
   }, [bunqLive, payAmount, payDescription, payIban, primaryAccount, refreshTransactions]);
 
   const cancelFraudTransaction = useCallback(() => {
@@ -545,45 +514,6 @@ export default function HomeScreen() {
       </div>
 
       {/* ── Quick Actions ── */}
-      {paymentNotice && (
-        <div className="px-5 mb-5">
-          <div className={`rounded-[1.7rem] border px-4 py-4 flex items-start gap-3 ${
-            paymentNotice.status === 'flagged'
-              ? 'bg-rose-500/10 border-rose-500/25'
-              : 'bg-emerald-500/10 border-emerald-500/25'
-          }`}>
-            <div className={`w-10 h-10 rounded-2xl grid place-items-center shrink-0 ${
-              paymentNotice.status === 'flagged'
-                ? 'bg-rose-500/15 text-rose-300'
-                : 'bg-emerald-500/15 text-emerald-300'
-            }`}>
-              {paymentNotice.status === 'flagged' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white">{paymentNotice.title}</p>
-              <p className="text-[12px] text-white/55 font-semibold mt-1 leading-snug">{paymentNotice.body}</p>
-              {paymentNotice.status === 'flagged' && (
-                <button
-                  type="button"
-                  onClick={() => openAssist('flagged')}
-                  className="mt-3 text-[11px] font-black bunq-text-gradient"
-                >
-                  Let Warden look into it
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setPaymentNotice(null)}
-              className="w-8 h-8 rounded-full bg-white/10 grid place-items-center text-white/60 hover:text-white transition shrink-0"
-              aria-label="Dismiss"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="px-5 mb-5">
         <div className="grid grid-cols-4 gap-3">
           {QUICK_ACTIONS.map(({ label, action, icon, color }) => (
@@ -1047,7 +977,7 @@ export default function HomeScreen() {
                           </h3>
                         </div>
                         <span className={`text-[10px] font-black border px-2 py-1 rounded-full shrink-0 ${riskClass}`}>
-                          {assistResult.risk_factor || 'Unknown'} risk
+                          {displayedRisk || 'Unknown'} risk
                         </span>
                       </div>
                     </div>
@@ -1077,7 +1007,7 @@ export default function HomeScreen() {
                       </div>
                     )}
 
-                    <div className={`rounded-2xl border px-4 py-4 ${isScamIdentified ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.06]'}`}>
+                    <div className={`rounded-2xl border px-4 py-4 ${isScamIdentified ? 'bg-rose-500/10 border-rose-500/25' : isConsistentEvidence ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.04] border-white/[0.06]'}`}>
                       <p className="text-[10px] font-black text-white/50 uppercase tracking-wide">Recommended</p>
                       <p className="text-sm font-black text-white mt-2 leading-relaxed">
                         {assistResult.recommended_action}

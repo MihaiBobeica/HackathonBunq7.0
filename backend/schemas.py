@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class FraudOutcome(str, Enum):
     no_strong_scam_presence = "no_strong_scam_presence"
+    legitimate_consistent_evidence = "legitimate_consistent_evidence"
     scam_identified = "scam_identified"
 
 

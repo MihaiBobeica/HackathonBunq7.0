@@ -24,9 +24,21 @@ PDF_MAGIC = (b"%PDF", "application/pdf")
 DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
 
 SYSTEM_PROMPT = """You are a concise financial fraud reviewer.
-Return one of two outcomes:
-1. no_strong_scam_presence: evidence does not show strong scam presence. Do not say it is guaranteed safe.
-2. scam_identified: identify the scam type, exactly 3 short reasons, risk factor, and recommend the safest next action.
+Return one of three outcomes:
+1. no_strong_scam_presence: evidence does not show strong scam presence, but there is not enough positive evidence to call it consistent.
+2. legitimate_consistent_evidence: payment details look consistent with the user's expected invoice, merchant, account name, amount, timing, or normal purpose. Use Low risk. Do not say it is guaranteed safe.
+3. scam_identified: strong evidence of manipulation, mismatch, impersonation, urgency, unusual payment method, or inconsistent details. Identify the scam type, exactly 3 short reasons, risk factor, and safest next action.
+
+Hard scam signals — any one of these alone is enough for scam_identified at High risk:
+- IBAN contains all zeros, is clearly invalid, or does not match a real bank format (e.g. NL00 BUNQ 0000 0000 00).
+- Company registration number (KvK, VAT, EIN, etc.) is all zeros, all identical digits, or a known placeholder.
+- Email domain uses a non-existent or reserved TLD (.example, .test, .invalid, .localhost) or is clearly synthetic.
+- Invoice contains a suspiciously small "adjustment" or "fee" line item (e.g. EUR 1.00) mixed with large amounts — common in synthetic or tampered documents.
+- Document explicitly states it is synthetic, a test, or not for real payment.
+- Sender name, IBAN beneficiary name, and invoice company name do not match each other.
+
+Positive evidence reduces risk: matching invoice numbers, matching business names, expected repair/service context, reasonable amount, no urgency, no pressure, and account name matching the merchant.
+WhatsApp or chat context alone is not a scam signal when the user confirms the IBAN matches an earlier invoice and the merchant/account details are consistent.
 Keep every text field short: one sentence max. Reasons must be brief fragments. No legal advice. Use submit_assessment exactly once."""
 
 TOOLS: list[dict[str, Any]] = [
@@ -38,8 +50,12 @@ TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "outcome": {
                     "type": "string",
-                    "enum": ["no_strong_scam_presence", "scam_identified"],
-                    "description": "Whether strong scam presence was found.",
+                    "enum": [
+                        "no_strong_scam_presence",
+                        "legitimate_consistent_evidence",
+                        "scam_identified",
+                    ],
+                    "description": "Fraud assessment outcome based on scam signals and positive consistency evidence.",
                 },
                 "scam_type": {
                     "type": "string",
@@ -48,14 +64,14 @@ TOOLS: list[dict[str, Any]] = [
                 "reasons": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "minItems": 3,
+                    "minItems": 0,
                     "maxItems": 3,
-                    "description": "Exactly 3 short reasons for scam_identified. For no_strong_scam_presence, use three short caution notes if useful.",
+                    "description": "Exactly 3 short reasons for scam_identified. For other outcomes, use up to three short caution or consistency notes if useful.",
                 },
                 "risk_factor": {
                     "type": "string",
                     "enum": ["Low", "Medium", "High"],
-                    "description": "Risk level based on available evidence.",
+                    "description": "Risk level based on available evidence. Use Low for legitimate_consistent_evidence.",
                 },
                 "summary": {
                     "type": "string",
@@ -63,7 +79,7 @@ TOOLS: list[dict[str, Any]] = [
                 },
                 "recommended_action": {
                     "type": "string",
-                    "description": "One short sentence. For flagged payments, recommend canceling or contacting the bank. For self-checks, recommend not paying or verifying through a trusted channel.",
+                    "description": "One short sentence. For scam_identified, recommend canceling, not paying, or verifying through a trusted channel. For legitimate_consistent_evidence, say the user may proceed only if invoice and account details match, and can verify through a known contact if unsure.",
                 },
             },
             "required": [
@@ -211,7 +227,9 @@ class CancellableAssistHandler:
             f"{scenario}\n\n"
             f"User description / context:\n{user_narrative}\n"
             f"{rag_section}\n"
-            "Analyze screenshots (if any) and text. Keep the result concise. Call submit_assessment once."
+            "Analyze screenshots (if any) and text. Weigh positive consistency evidence against scam signals. "
+            "Do not classify as a scam only because the evidence is a WhatsApp chat or invoice discussion. "
+            "Keep the result concise. Call submit_assessment once."
         )
 
         content: list[dict[str, Any]] = [{"type": "text", "text": text_block}]
