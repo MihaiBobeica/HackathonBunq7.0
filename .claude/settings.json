@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv_test/Scripts/python.exe -c ' *)",
+      "Bash(.venv_test/Scripts/python.exe -m pip install --quiet fastapi 'uvicorn[standard]' python-multipart python-dotenv pypdf scikit-learn anthropic)",
+      "Bash(BUNQ_API_KEY=sandbox_a09e02ae65521abb1900c4f4e60696c2ac5c21bc6f429954a40c3e9c BUNQ_ENVIRONMENT=SANDBOX BUNQ_CONTEXT_FILE=./.venv_test/bunq.context .venv_test/Scripts/python.exe -m uvicorn main:app --host 127.0.0.1 --port 8765 --log-level warning)",
+      "Bash(curl -s http://127.0.0.1:8765/bunq/status)",
+      "Bash(curl -s http://127.0.0.1:8765/bunq/accounts)"
+    ]
+  }
+}

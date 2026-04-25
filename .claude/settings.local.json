@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl --location --request POST 'https://public-api.sandbox.bunq.com/v1/sandbox-user-person' -s)"
+    ]
+  }
+}

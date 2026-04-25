@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   WalletCards, PiggyBank, ShoppingBasket, Film,
@@ -7,6 +7,7 @@ import {
   Send, CheckCircle, Clock3,
 } from 'lucide-react';
 import { FLAGGED_IBAN } from '../constants';
+import { apiBase, createBunqPayment, getAccounts, getCards, getPayments, sandboxFund } from '../api';
 
 const ACCOUNTS = [
   {
@@ -56,7 +57,69 @@ const QUICK_ACTIONS = [
 ];
 
 // Default dev API (override with VITE_API_URL)
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+const API_BASE = apiBase;
+
+const ACCOUNT_ICONS = [
+  { icon: <WalletCards className="w-5 h-5" />, iconBg: 'bg-orange-500/20 text-orange-400' },
+  { icon: <PiggyBank className="w-5 h-5" />,   iconBg: 'bg-violet-500/20 text-violet-400' },
+  { icon: <WalletCards className="w-5 h-5" />, iconBg: 'bg-emerald-500/20 text-emerald-400' },
+  { icon: <PiggyBank className="w-5 h-5" />,   iconBg: 'bg-cyan-500/20 text-cyan-400' },
+];
+
+const CARD_GRADIENTS = [
+  'from-indigo-600 via-purple-600 to-violet-700',
+  'from-orange-500 via-rose-500 to-pink-600',
+  'from-emerald-500 via-teal-500 to-cyan-600',
+  'from-sky-500 via-blue-500 to-indigo-600',
+];
+
+function formatEuro(value, currency = 'EUR') {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return `${currency} 0.00`;
+  const symbol = currency === 'EUR' ? '€' : `${currency} `;
+  return `${symbol} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatIban(iban) {
+  if (!iban) return '';
+  return iban.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function mapAccountForDisplay(account, idx) {
+  const visual = ACCOUNT_ICONS[idx % ACCOUNT_ICONS.length];
+  return {
+    id: account.id,
+    label: account.description || 'Account',
+    amount: formatEuro(account.balance, account.currency),
+    sub: account.iban ? formatIban(account.iban) : account.type,
+    icon: visual.icon,
+    iconBg: visual.iconBg,
+    raw: account,
+  };
+}
+
+function mapPaymentForDisplay(payment) {
+  const isOutgoing = Number(payment.amount) < 0;
+  const absAmount = Math.abs(Number(payment.amount) || 0);
+  return {
+    id: `bunq-${payment.id}`,
+    icon: isOutgoing ? <ArrowUp className="w-5 h-5" /> : <ArrowDown className="w-5 h-5" />,
+    bg: isOutgoing ? 'bg-rose-500/15 text-rose-400' : 'bg-emerald-500/15 text-emerald-400',
+    name: payment.counterparty_name || payment.description || 'Payment',
+    cat: payment.description || payment.counterparty_iban || '',
+    amount: `${isOutgoing ? '- ' : '+ '}${formatEuro(absAmount, payment.currency)}`,
+  };
+}
+
+function mapCardForDisplay(card, idx) {
+  const last4 = (card.last_four || '').replace(/\D/g, '').slice(-4) || '0000';
+  return {
+    gradient: CARD_GRADIENTS[idx % CARD_GRADIENTS.length],
+    last4,
+    type: card.type === 'MASTERCARD' ? 'Mastercard' : card.type === 'MAESTRO' ? 'Maestro' : card.type === 'VISA' ? 'Visa' : (card.type || 'Card'),
+    name: card.name_on_card || 'Cardholder',
+  };
+}
 
 const spring = { type: 'spring', stiffness: 420, damping: 28 };
 
@@ -140,7 +203,94 @@ export default function HomeScreen() {
   const [payAmount, setPayAmount] = useState('');
   const [payDescription, setPayDescription] = useState('');
   const [finnResult, setFinnResult] = useState(null);
+  const [bunqAccounts, setBunqAccounts] = useState(null);
+  const [bunqCards, setBunqCards] = useState(null);
+  const [bunqLive, setBunqLive] = useState(false);
+  const [paySubmitting, setPaySubmitting] = useState(false);
+  const [funding, setFunding] = useState(false);
   const assistFileRef = useRef(null);
+
+  const refreshTransactions = useCallback(async (accountId) => {
+    if (!accountId) return;
+    try {
+      const payments = await getPayments(accountId, 10);
+      setTransactions(payments.map(mapPaymentForDisplay));
+    } catch (err) {
+      console.warn('Failed to refresh bunq payments', err);
+    }
+  }, []);
+
+  const handleSandboxFund = useCallback(async () => {
+    const accountId = bunqAccounts?.[0]?.id;
+    if (!accountId || funding) return;
+    setFunding(true);
+    try {
+      await sandboxFund(accountId, '500.00');
+      // Sugar daddy responds in ~1-3s; poll the balance briefly.
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const refreshed = await getAccounts();
+        if (Array.isArray(refreshed) && refreshed.length > 0) {
+          const before = bunqAccounts[0]?.balance ?? 0;
+          if (refreshed[0].balance > before) {
+            setBunqAccounts(refreshed);
+            await refreshTransactions(refreshed[0].id);
+            setPaymentNotice({
+              status: 'clear',
+              title: 'Sandbox topped up',
+              body: `+€500 from sugardaddy@bunq.com.`,
+            });
+            return;
+          }
+        }
+      }
+      setPaymentNotice({
+        status: 'clear',
+        title: 'Top-up requested',
+        body: 'Sugardaddy is processing — pull to refresh in a moment.',
+      });
+    } catch (err) {
+      setPaymentNotice({
+        status: 'flagged',
+        title: 'Top-up failed',
+        body: err?.message || 'Could not request from sandbox sugardaddy.',
+      });
+    } finally {
+      setFunding(false);
+    }
+  }, [bunqAccounts, funding, refreshTransactions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [accounts, cards] = await Promise.all([getAccounts(), getCards().catch(() => [])]);
+        if (cancelled) return;
+        if (Array.isArray(accounts) && accounts.length > 0) {
+          setBunqAccounts(accounts);
+          setBunqCards(Array.isArray(cards) ? cards : []);
+          setBunqLive(true);
+          await refreshTransactions(accounts[0].id);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('bunq API not available, using mock data:', err.message);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [refreshTransactions]);
+
+  const displayAccounts = bunqLive && bunqAccounts
+    ? bunqAccounts.map(mapAccountForDisplay)
+    : ACCOUNTS;
+  const displayCards = bunqLive && bunqCards && bunqCards.length > 0
+    ? bunqCards.map(mapCardForDisplay)
+    : VIRTUAL_CARDS;
+  const totalBalance = bunqLive && bunqAccounts
+    ? bunqAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0)
+    : 12450.00;
+  const primaryAccount = bunqLive && bunqAccounts ? bunqAccounts[0] : null;
 
   const openAssist = useCallback((mode = 'flagged', payment = null) => {
     setAssistMode(mode);
@@ -248,7 +398,7 @@ export default function HomeScreen() {
   const isFlaggedReview = assistMode === 'flagged';
   const isPaymentReady = payIban.trim() && payAmount.trim();
 
-  const submitPayment = useCallback(() => {
+  const submitPayment = useCallback(async () => {
     if (!payIban.trim() || !payAmount.trim()) return;
 
     const scan = finnScanPayment({
@@ -256,6 +406,7 @@ export default function HomeScreen() {
       amount: payAmount,
       description: payDescription,
     });
+    const amountNumber = parsePaymentAmount(payAmount);
     const payment = {
       id: `payment-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       recipient: payDescription.trim() || 'New payment',
@@ -284,28 +435,63 @@ export default function HomeScreen() {
       return;
     }
 
-    setTransactions((prev) => [
-      {
-        id: payment.id,
-        icon: <ArrowUp className="w-5 h-5" />,
-        bg: 'bg-emerald-500/15 text-emerald-400',
-        name: payment.recipient,
-        cat: payment.iban,
-        amount: `- ${payment.amount}`,
-      },
-      ...prev,
-    ]);
-    setPaymentNotice({
-      status: 'clear',
-      title: 'Payment added',
-      body: 'Finn found no strong risk signal, so it was added to Recent.',
-    });
+    if (bunqLive && primaryAccount && amountNumber > 0) {
+      setPaySubmitting(true);
+      try {
+        await createBunqPayment({
+          monetary_account_id: primaryAccount.id,
+          amount: amountNumber.toFixed(2),
+          currency: 'EUR',
+          counterparty_iban: payIban.trim().replace(/\s+/g, ''),
+          counterparty_name: payment.recipient,
+          description: payment.description,
+        });
+        await refreshTransactions(primaryAccount.id);
+        try {
+          const refreshed = await getAccounts();
+          if (Array.isArray(refreshed) && refreshed.length > 0) setBunqAccounts(refreshed);
+        } catch { /* ignore balance refresh failure */ }
+        setPaymentNotice({
+          status: 'clear',
+          title: 'Payment sent',
+          body: 'Finn found no strong risk signal. Sent through bunq.',
+        });
+      } catch (err) {
+        setPaymentNotice({
+          status: 'flagged',
+          title: 'bunq rejected the payment',
+          body: err?.message || 'Could not reach bunq.',
+        });
+        setPaySubmitting(false);
+        return;
+      } finally {
+        setPaySubmitting(false);
+      }
+    } else {
+      setTransactions((prev) => [
+        {
+          id: payment.id,
+          icon: <ArrowUp className="w-5 h-5" />,
+          bg: 'bg-emerald-500/15 text-emerald-400',
+          name: payment.recipient,
+          cat: payment.iban,
+          amount: `- ${payment.amount}`,
+        },
+        ...prev,
+      ]);
+      setPaymentNotice({
+        status: 'clear',
+        title: 'Payment added',
+        body: 'Finn found no strong risk signal, so it was added to Recent.',
+      });
+    }
+
     setPayOpen(false);
     setFinnResult(null);
     setPayIban('');
     setPayAmount('');
     setPayDescription('');
-  }, [payAmount, payDescription, payIban]);
+  }, [bunqLive, payAmount, payDescription, payIban, primaryAccount, refreshTransactions]);
 
   const cancelFraudTransaction = useCallback(() => {
     setWardenPayments((prev) => prev.filter((payment) => payment.id !== selectedWardenPayment?.id));
@@ -325,14 +511,35 @@ export default function HomeScreen() {
       {/* ── Balance Hero ── */}
       <div className="px-5 pt-5 pb-4">
         <div className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-5">
-          <p className="text-[10px] font-bold text-white/35 uppercase tracking-[0.12em]">Total Balance</p>
+          <p className="text-[10px] font-bold text-white/35 uppercase tracking-[0.12em]">
+            Total Balance{bunqLive ? ' · live' : ''}
+          </p>
           <div className="mt-2 flex items-end gap-1">
-            <span className="text-[40px] font-black text-white leading-none tracking-tight">€ 12,450</span>
-            <span className="text-2xl font-black text-white/35 leading-none mb-0.5">.00</span>
+            <span className="text-[40px] font-black text-white leading-none tracking-tight">
+              € {Math.floor(totalBalance).toLocaleString('en-US')}
+            </span>
+            <span className="text-2xl font-black text-white/35 leading-none mb-0.5">
+              .{(totalBalance % 1).toFixed(2).slice(2)}
+            </span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-bold text-emerald-400">+2.4% this month</span>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[11px] font-bold text-emerald-400">
+                {bunqLive ? `${bunqAccounts?.length ?? 0} bunq account${bunqAccounts?.length === 1 ? '' : 's'}` : '+2.4% this month'}
+              </span>
+            </div>
+            {bunqLive && (
+              <button
+                type="button"
+                onClick={handleSandboxFund}
+                disabled={funding}
+                className={`text-[10px] font-black uppercase tracking-[0.1em] px-2.5 py-1 rounded-full border ${funding ? 'opacity-50 cursor-not-allowed border-white/10 text-white/40' : 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'} transition flex items-center gap-1`}
+              >
+                {funding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                {funding ? 'Topping up…' : 'Sandbox +€500'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -402,7 +609,7 @@ export default function HomeScreen() {
           <button className="text-[11px] font-bold text-white/35 hover:text-white/60 transition">See all</button>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {ACCOUNTS.map(({ label, amount, sub, icon, iconBg }) => (
+          {displayAccounts.map(({ label, amount, sub, icon, iconBg }) => (
             <div key={label} className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-4">
               <div className={`w-9 h-9 rounded-xl ${iconBg} grid place-items-center mb-3`}>
                 {icon}
@@ -500,9 +707,9 @@ export default function HomeScreen() {
           <button className="text-[11px] font-bold text-white/35 hover:text-white/60 transition">Manage</button>
         </div>
         <div className="flex gap-3 overflow-x-auto no-scrollbar px-5 pb-1">
-          {VIRTUAL_CARDS.map(({ gradient, last4, type }) => (
+          {displayCards.map(({ gradient, last4, type, name }, i) => (
             <div
-              key={last4}
+              key={`${last4}-${i}`}
               className={`shrink-0 w-[195px] h-[115px] rounded-3xl bg-gradient-to-br ${gradient} p-4 flex flex-col justify-between shadow-xl relative overflow-hidden`}
             >
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
@@ -512,7 +719,7 @@ export default function HomeScreen() {
               </div>
               <div className="relative">
                 <p className="text-white font-black text-sm tracking-[0.18em]">•••• {last4}</p>
-                <p className="text-[10px] text-white/50 mt-0.5 font-semibold uppercase tracking-widest">John Doe</p>
+                <p className="text-[10px] text-white/50 mt-0.5 font-semibold uppercase tracking-widest">{name || 'John Doe'}</p>
               </div>
             </div>
           ))}
@@ -668,11 +875,11 @@ export default function HomeScreen() {
                     <button
                       type="button"
                       onClick={submitPayment}
-                      disabled={!isPaymentReady}
-                      className={`w-full bg-emerald-500 text-white font-black py-4 rounded-2xl shadow-[0_20px_50px_rgba(16,185,129,0.24)] flex justify-center items-center gap-2 ${!isPaymentReady ? 'opacity-45 cursor-not-allowed' : ''}`}
+                      disabled={!isPaymentReady || paySubmitting}
+                      className={`w-full bg-emerald-500 text-white font-black py-4 rounded-2xl shadow-[0_20px_50px_rgba(16,185,129,0.24)] flex justify-center items-center gap-2 ${(!isPaymentReady || paySubmitting) ? 'opacity-45 cursor-not-allowed' : ''}`}
                     >
-                      <Send className="w-5 h-5" />
-                      Add payment
+                      {paySubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                      {paySubmitting ? 'Sending…' : (bunqLive ? 'Send via bunq' : 'Add payment')}
                     </button>
                     <button
                       type="button"
