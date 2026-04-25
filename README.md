@@ -95,7 +95,7 @@ Sample text to paste:
 
 #### Warden self-check → expected **High risk** / `scam_identified`
 
-Any one of these alone is enough to trigger High (Marius's hard-signal rules):
+Any one of these alone is enough to trigger High:
 - IBAN is all zeros or clearly invalid (e.g. `NL00 BUNQ 0000 0000 00`)
 - KvK / VAT / EIN registration number is all zeros or `123456789`
 - Email domain ends in `.example`, `.test`, `.invalid`, or `.localhost`
