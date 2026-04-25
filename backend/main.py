@@ -3,25 +3,35 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-from llm_content_handler import LlmContentHandler
-from payment_handler import PaymentHandler
-from schemas import PaymentRequest, PaymentResponse
+from cancellable_assist_handler import CancellableAssistHandler
+from schemas import CancellableAssistResponse
+
+load_dotenv(override=True)
 
 app = FastAPI(title="Hackathon Backend", version="0.1.0")
 
-_payments = PaymentHandler()
-_llm_content = LlmContentHandler()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:4173",
+        "http://localhost:4173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+_cancellable = CancellableAssistHandler()
 
 
-@app.post("/payment", response_model=PaymentResponse)
-def perform_payment(body: PaymentRequest) -> PaymentResponse:
-    return _payments.pay_request(body)
-
-
-@app.post("/scam-check")
-async def check_scam(
+@app.post("/cancellable-assist", response_model=CancellableAssistResponse)
+async def cancellable_assist(
     text: Annotated[str, Form()] = "",
     files: Annotated[list[UploadFile] | None, File()] = None,
-):
-    return await _llm_content.handle_scam_check(text, files)
+) -> CancellableAssistResponse:
+    return await _cancellable.handle(text, files)
