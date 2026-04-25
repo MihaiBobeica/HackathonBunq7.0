@@ -6,7 +6,7 @@ import {
   TrendingUp, AlertTriangle, X, Loader2, FileText, ShieldAlert, ScanSearch,
   Send, CheckCircle, Clock3,
 } from 'lucide-react';
-import { FLAGGED_IBAN } from '../constants';
+import { FLAGGED_IBAN, FLAGGED_NAME } from '../constants';
 import { apiBase, createBunqPayment, getAccounts, getCards, getPayments, sandboxFund } from '../api';
 
 const ACCOUNTS = [
@@ -169,7 +169,7 @@ function formatPaymentAmount(value) {
 }
 
 function finnScanPayment({ iban, amount, description }) {
-  const normalizedIban = iban.trim().toUpperCase();
+  const normalizedIban = iban.replace(/\s+/g, '').toUpperCase();
   const amountNumber = parsePaymentAmount(amount);
   const text = `${description} ${iban}`.toLowerCase();
   const reasons = [];
@@ -816,11 +816,11 @@ export default function HomeScreen() {
                       onClick={() => {
                         setPayIban(FLAGGED_IBAN);
                         setPayAmount('EUR 1,500.00');
-                        setPayDescription('Marketplace deposit');
+                        setPayDescription(`Marketplace deposit to ${FLAGGED_NAME}`);
                       }}
                       className="w-full py-3.5 rounded-2xl bg-white/10 text-white/80 font-black text-sm hover:bg-white/14 transition"
                     >
-                      Fill flagged demo
+                      Fill flagged demo ({FLAGGED_NAME})
                     </button>
                   </>
                 ) : finnResult.status === 'flagged' ? (

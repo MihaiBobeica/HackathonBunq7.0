@@ -5,7 +5,12 @@
       "Bash(.venv_test/Scripts/python.exe -m pip install --quiet fastapi 'uvicorn[standard]' python-multipart python-dotenv pypdf scikit-learn anthropic)",
       "Bash(BUNQ_API_KEY=sandbox_a09e02ae65521abb1900c4f4e60696c2ac5c21bc6f429954a40c3e9c BUNQ_ENVIRONMENT=SANDBOX BUNQ_CONTEXT_FILE=./.venv_test/bunq.context .venv_test/Scripts/python.exe -m uvicorn main:app --host 127.0.0.1 --port 8765 --log-level warning)",
       "Bash(curl -s http://127.0.0.1:8765/bunq/status)",
-      "Bash(curl -s http://127.0.0.1:8765/bunq/accounts)"
+      "Bash(curl -s http://127.0.0.1:8765/bunq/accounts)",
+      "Bash(curl -s -X POST http://127.0.0.1:8001/bunq/payments -H \"Content-Type: application/json\" -d '{\"monetary_account_id\":3622032,\"amount\":\"15.00\",\"currency\":\"EUR\",\"counterparty_iban\":\"NL54BUNQ2106266987\",\"counterparty_name\":\"Eindhoven Student Housing B.V.\",\"description\":\"Rent demo\"}')",
+      "Bash(curl -s \"http://127.0.0.1:8001/bunq/accounts/3622032/payments?count=3\")",
+      "Bash(python -c ' *)",
+      "Bash(npx --no-install eslint src/screens/HomeScreen.jsx src/constants.js)",
+      "Bash(curl -s -o /dev/null -w \"frontend: HTTP %{http_code}\\\\n\" http://127.0.0.1:5173/)"
     ]
   }
 }

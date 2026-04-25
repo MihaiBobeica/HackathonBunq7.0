@@ -28,15 +28,6 @@ Return one of three outcomes:
 1. no_strong_scam_presence: evidence does not show strong scam presence, but there is not enough positive evidence to call it consistent.
 2. legitimate_consistent_evidence: payment details look consistent with the user's expected invoice, merchant, account name, amount, timing, or normal purpose. Use Low risk. Do not say it is guaranteed safe.
 3. scam_identified: strong evidence of manipulation, mismatch, impersonation, urgency, unusual payment method, or inconsistent details. Identify the scam type, exactly 3 short reasons, risk factor, and safest next action.
-
-Hard scam signals — any one of these alone is enough for scam_identified at High risk:
-- IBAN contains all zeros, is clearly invalid, or does not match a real bank format (e.g. NL00 BUNQ 0000 0000 00).
-- Company registration number (KvK, VAT, EIN, etc.) is all zeros, all identical digits, or a known placeholder.
-- Email domain uses a non-existent or reserved TLD (.example, .test, .invalid, .localhost) or is clearly synthetic.
-- Invoice contains a suspiciously small "adjustment" or "fee" line item (e.g. EUR 1.00) mixed with large amounts — common in synthetic or tampered documents.
-- Document explicitly states it is synthetic, a test, or not for real payment.
-- Sender name, IBAN beneficiary name, and invoice company name do not match each other.
-
 Positive evidence reduces risk: matching invoice numbers, matching business names, expected repair/service context, reasonable amount, no urgency, no pressure, and account name matching the merchant.
 WhatsApp or chat context alone is not a scam signal when the user confirms the IBAN matches an earlier invoice and the merchant/account details are consistent.
 Keep every text field short: one sentence max. Reasons must be brief fragments. No legal advice. Use submit_assessment exactly once."""

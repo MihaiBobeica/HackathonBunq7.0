@@ -11,7 +11,6 @@ class FraudOutcome(str, Enum):
     legitimate_consistent_evidence = "legitimate_consistent_evidence"
     scam_identified = "scam_identified"
 
-
 class RiskFactor(str, Enum):
     low = "Low"
     medium = "Medium"
