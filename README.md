@@ -1,6 +1,6 @@
 # HackathonBunq7.0
 
-Local demo with a React/Vite frontend and FastAPI backend, launched with Docker Compose.
+Local demo with a React/Vite frontend and FastAPI backend, launched with Docker Compose. The application does use the Bunq API
 
 ## Prerequisites
 
