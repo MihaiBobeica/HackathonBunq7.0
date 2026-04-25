@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Signal, Wifi, ChevronLeft,
@@ -15,7 +15,9 @@ import AnalysisResultScreen from './screens/AnalysisResultScreen';
 import TrustScreen          from './screens/TrustScreen';
 import SuccessScreen        from './screens/SuccessScreen';
 
-const FLAGGED_IBAN = 'NL99 BUNQ 0123 4567 89';
+import { fetchAccounts }     from './api/accounts';
+import { fetchTransactions } from './api/transactions';
+import { ibanCheck }         from './api/iban';
 
 const SCREEN_TITLES = {
   home:    'Home',
@@ -44,6 +46,32 @@ export default function App() {
   const [successRecipient, setSuccessRecipient] = useState('');
   const [successTrusted,   setSuccessTrusted]   = useState(false);
 
+  const [accounts, setAccounts]         = useState(null);
+  const [transactions, setTransactions] = useState(null);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [sending, setSending]           = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [a, t] = await Promise.all([
+          fetchAccounts().catch(() => null),
+          fetchTransactions({ limit: 10 }).catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (a) setAccounts(a.accounts);
+        if (t) setTransactions(t.transactions);
+        if ((a && a.fallback) || (t && t.fallback) || !a || !t) {
+          setUsingFallback(true);
+        }
+      } catch {
+        if (!cancelled) setUsingFallback(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   function nav(to) { setPrevScreen(screen); setScreen(to); }
 
   function goHome() {
@@ -65,17 +93,27 @@ export default function App() {
     nav('success');
   }
 
-  function handleSend() {
+  async function handleSend() {
     const n = iban.trim().toUpperCase();
-    if (!n) return;
+    if (!n || sending) return;
     if (trustedIbans.has(n)) {
       showSuccess(amount, n);
       return;
     }
-    if (n === FLAGGED_IBAN) {
-      nav('flagged');
-    } else {
-      showSuccess(amount, n);
+    setSending(true);
+    try {
+      const result = await ibanCheck(n, amount);
+      setSending(false);
+      if (result.flagged) {
+        nav('flagged');
+      } else {
+        showSuccess(amount, n);
+      }
+    } catch {
+      setSending(false);
+      // Demo resilience: fall back to old hardcoded match
+      if (n === 'NL99 BUNQ 0123 4567 89') nav('flagged');
+      else showSuccess(amount, n);
     }
   }
 
@@ -92,6 +130,8 @@ export default function App() {
 
   const isHome    = screen === 'home';
   const isSuccess = screen === 'success';
+
+  const paymentContext = { iban, amount, description };
 
   return (
     <div className="app-bg min-h-screen flex items-center justify-center p-4">
@@ -133,7 +173,14 @@ export default function App() {
           )}
 
           <section className="flex-1 min-h-0 overflow-y-auto relative no-scrollbar">
-            {screen === 'home'    && <HomeScreen onStartPayment={() => nav('payment')} onForceAI={() => nav('upload')} />}
+            {screen === 'home'    && (
+              <HomeScreen
+                onStartPayment={() => nav('payment')}
+                onForceAI={() => nav('upload')}
+                accounts={accounts}
+                transactions={transactions}
+              />
+            )}
             {screen === 'payment' && (
               <PaymentScreen
                 iban={iban} setIban={setIban}
@@ -141,13 +188,18 @@ export default function App() {
                 description={description} setDescription={setDescription}
                 onSend={handleSend}
                 onForceAI={() => nav('upload')}
+                sending={sending}
               />
             )}
             {screen === 'flagged' && (
               <FlaggedScreen onUpload={() => nav('upload')} onCancel={goHome} onIgnore={() => nav('trust')} />
             )}
             {screen === 'upload'  && (
-              <UploadScreen onAnalyze={(s, r) => showResult(s, r)} onBack={goBack} />
+              <UploadScreen
+                onAnalyze={(s, r) => showResult(s, r)}
+                onBack={goBack}
+                paymentContext={paymentContext}
+              />
             )}
             {screen === 'result'  && (
               <AnalysisResultScreen score={riskScore} reasons={riskReasons} onStop={goHome} onContinue={() => nav('trust')} />
@@ -164,6 +216,12 @@ export default function App() {
               />
             )}
           </section>
+
+          {usingFallback && isHome && (
+            <div className="absolute top-12 right-3 z-40 px-2 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[9px] font-black text-amber-400 uppercase tracking-wider">
+              Offline data
+            </div>
+          )}
 
           {isHome && (
             <nav className="shrink-0 bg-[#171717]/95 backdrop-blur-xl px-4 pb-5 pt-3 shadow-[0_-22px_44px_rgba(0,0,0,0.8)]">

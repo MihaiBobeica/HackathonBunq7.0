@@ -1,193 +1,165 @@
-import {
-  WalletCards, PiggyBank, ShoppingBasket, Film,
-  ArrowUp, ArrowDown, Plus, Sparkles, CreditCard,
-  TrendingUp,
-} from 'lucide-react';
+import { ArrowUp, ArrowDown, Plus, Shield } from 'lucide-react';
 
-const ACCOUNTS = [
-  {
-    label: 'Main Account',
-    amount: '€ 4,200.00',
-    sub: 'NL99 BUNQ 1234 5678 90',
-    icon: <WalletCards className="w-5 h-5" />,
-    iconBg: 'bg-orange-500/20 text-orange-400',
-  },
-  {
-    label: 'Savings Goal',
-    amount: '€ 8,250.00',
-    sub: 'New Car',
-    icon: <PiggyBank className="w-5 h-5" />,
-    iconBg: 'bg-violet-500/20 text-violet-400',
-  },
+const FALLBACK_ACCOUNTS = [
+  { id: 1, label: 'Main Account', sub: 'NL12 BUNQ 0001 2345 67', amount: '€ 4.200,00' },
+  { id: 2, label: 'Savings',      sub: 'NL34 BUNQ 0007 6543 21', amount: '€ 12.500,00' },
 ];
 
-const VIRTUAL_CARDS = [
-  { gradient: 'from-indigo-600 via-purple-600 to-violet-700', last4: '1234', type: 'Mastercard' },
-  { gradient: 'from-orange-500 via-rose-500 to-pink-600',     last4: '5678', type: 'Visa'       },
-  { gradient: 'from-emerald-500 via-teal-500 to-cyan-600',    last4: '9012', type: 'Mastercard' },
+const FALLBACK_TRANSACTIONS = [
+  { id: 101, name: 'Albert Heijn', cat: 'Groceries',     amount: '- € 34,50' },
+  { id: 102, name: 'Anthropic',    cat: 'Subscriptions', amount: '- € 19,99' },
+  { id: 103, name: 'Salary',       cat: 'Income',        amount: '+ € 2.800,00' },
 ];
 
-const TRANSACTIONS = [
-  {
-    icon: <ShoppingBasket className="w-5 h-5" />,
-    bg: 'bg-orange-500/15 text-orange-400',
-    name: 'Albert Heijn',
-    cat: 'Groceries',
-    amount: '- €34.50',
-  },
-  {
-    icon: <Film className="w-5 h-5" />,
-    bg: 'bg-rose-500/15 text-rose-400',
-    name: 'Anthropic',
-    cat: 'Subscriptions',
-    amount: '- €19.99',
-  },
-];
+const ACCOUNT_ICONS = ['🏦', '💰', '🐷', '💳'];
 
-const QUICK_ACTIONS = [
-  { label: 'Pay',     icon: <ArrowUp   className="w-6 h-6" />, color: 'bg-orange-500 shadow-orange-500/30' },
-  { label: 'Request', icon: <ArrowDown className="w-6 h-6" />, color: 'bg-blue-500 shadow-blue-500/30'    },
-  { label: 'Add',     icon: <Plus      className="w-6 h-6" />, color: 'bg-violet-500 shadow-violet-500/30' },
-];
+function splitAmount(amount) {
+  // Accept '€ 4.200,00' or '- € 4.200,00' or '+ € 4.200,00' -> { sign, whole, cents }
+  const s = String(amount || '').trim();
+  const m = s.match(/^([+\-]?)\s*([€$£]?)\s*([\d.,]+)$/);
+  if (!m) return { sign: '', symbol: '€', whole: s, cents: '' };
+  const sign = m[1] || '';
+  const symbol = m[2] || '€';
+  const num = m[3];
+  const lastComma = num.lastIndexOf(',');
+  const lastDot = num.lastIndexOf('.');
+  let whole = num, cents = '00';
+  if (lastComma > lastDot) {
+    whole = num.slice(0, lastComma);
+    cents = num.slice(lastComma + 1);
+  } else if (lastDot > lastComma && num.length - lastDot - 1 === 2) {
+    whole = num.slice(0, lastDot);
+    cents = num.slice(lastDot + 1);
+  }
+  return { sign, symbol, whole, cents };
+}
 
-export default function HomeScreen({ onStartPayment, onForceAI }) {
+function Amount({ value, large = false }) {
+  const { sign, symbol, whole, cents } = splitAmount(value);
   return (
-    <div className="screen-enter pb-8">
+    <span className={`font-black tracking-tight ${large ? 'text-2xl' : 'text-sm'} text-white`}>
+      {sign && <span>{sign} </span>}
+      {whole}
+      {cents && <sup className={large ? 'text-base' : 'text-[10px]'}>,{cents}</sup>}
+      <span className="ml-1 text-white/60">{symbol}</span>
+    </span>
+  );
+}
 
-      {/* ── Balance Hero ── */}
-      <div className="px-5 pt-5 pb-4">
-        <div className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-5">
-          <p className="text-[10px] font-bold text-white/35 uppercase tracking-[0.12em]">Total Balance</p>
-          <div className="mt-2 flex items-end gap-1">
-            <span className="text-[40px] font-black text-white leading-none tracking-tight">€ 12,450</span>
-            <span className="text-2xl font-black text-white/35 leading-none mb-0.5">.00</span>
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-bold text-emerald-400">+2.4% this month</span>
-          </div>
-        </div>
+function categoryColor(cat) {
+  const map = {
+    Groceries: 'bg-orange-500/20 text-orange-400',
+    Income:    'bg-emerald-500/20 text-emerald-400',
+    Subscriptions: 'bg-rose-500/20 text-rose-400',
+    Payment:   'bg-blue-500/20 text-blue-400',
+  };
+  return map[cat] || 'bg-white/10 text-white/60';
+}
+
+export default function HomeScreen({ onStartPayment, onForceAI, accounts, transactions }) {
+  const accs = accounts && accounts.length ? accounts : FALLBACK_ACCOUNTS;
+  const txs  = transactions && transactions.length ? transactions : FALLBACK_TRANSACTIONS;
+
+  return (
+    <div className="screen-enter pb-8 bg-black">
+      {/* ── Title ── */}
+      <div className="px-5 pt-4 pb-2">
+        <h1 className="text-[40px] font-black text-white tracking-tight leading-none">Home</h1>
       </div>
 
-      {/* ── Quick Actions ── */}
-      <div className="px-5 mb-5">
-        <div className="grid grid-cols-3 gap-4">
-          {QUICK_ACTIONS.map(({ label, icon, color }, i) => (
-            <button
-              key={label}
-              onClick={i === 0 ? onStartPayment : undefined}
-              className="flex flex-col items-center gap-2"
-            >
-              <div className={`w-14 h-14 rounded-2xl ${color} shadow-lg grid place-items-center text-white transition hover:scale-105`}>
-                {icon}
-              </div>
-              <span className="text-[11px] font-bold text-white/50">{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Finn Sentinel ── */}
-      <div className="px-5 mb-5">
-        <button
-          onClick={onForceAI}
-          className="w-full rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-4 text-left hover:-translate-y-0.5 transition"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-orange-400 grid place-items-center shrink-0">
-              <Sparkles className="w-5 h-5" />
+      {/* ── Warden promo (signature green card) ── */}
+      <div className="px-5 mt-5">
+        <div className="rounded-3xl p-5 bunq-promo-card relative overflow-hidden">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/25 grid place-items-center shrink-0">
+              <Shield className="w-5 h-5 text-emerald-300" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-black text-white text-sm">Finn Sentinel</p>
-                <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
-                  AI ON
-                </span>
-              </div>
-              <p className="text-[11px] text-white/35 mt-0.5 leading-snug">
-                Check any payment before you send money
+            <div className="min-w-0">
+              <p className="font-black text-base leading-tight" style={{ color: 'var(--bunq-promo-green-text)' }}>Warden is watching</p>
+              <p className="text-[12px] mt-1 leading-snug" style={{ color: 'rgba(74,222,128,0.7)' }}>
+                Every payment is checked for scam risk before it leaves your account.
               </p>
+              <button
+                onClick={onForceAI}
+                className="mt-3 inline-flex items-center gap-1 px-4 py-2 rounded-full bg-emerald-400 text-emerald-950 text-[12px] font-black"
+              >
+                Try a safety scan
+              </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── Quick action pills ── */}
+      <div className="px-5 mt-5 grid grid-cols-3 gap-2.5">
+        <button
+          onClick={onStartPayment}
+          className="bunq-pay-pill rounded-3xl py-3 flex flex-col items-center gap-1 text-white font-black active:scale-95 transition"
+        >
+          <ArrowUp className="w-5 h-5" />
+          <span className="text-xs">Pay</span>
+        </button>
+        <button className="bunq-req-pill rounded-3xl py-3 flex flex-col items-center gap-1 text-white font-black active:scale-95 transition">
+          <ArrowDown className="w-5 h-5" />
+          <span className="text-xs">Request</span>
+        </button>
+        <button className="bunq-add-pill rounded-3xl py-3 flex flex-col items-center gap-1 text-white font-black active:scale-95 transition">
+          <Plus className="w-5 h-5" />
+          <span className="text-xs">Add Money</span>
         </button>
       </div>
 
-      {/* ── Accounts ── */}
-      <div className="px-5 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-white">Accounts</h3>
-          <button className="text-[11px] font-bold text-white/35 hover:text-white/60 transition">See all</button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {ACCOUNTS.map(({ label, amount, sub, icon, iconBg }) => (
-            <div key={label} className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] p-4">
-              <div className={`w-9 h-9 rounded-xl ${iconBg} grid place-items-center mb-3`}>
-                {icon}
-              </div>
-              <p className="text-[10px] font-bold text-white/35 uppercase tracking-wide">{label}</p>
-              <p className="font-black text-white mt-1 text-[15px]">{amount}</p>
-              <p className="text-[10px] text-white/25 mt-1 font-mono truncate">{sub}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── My Cards ── */}
-      <div className="mb-5">
-        <div className="px-5 flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-white">My Cards</h3>
-          <button className="text-[11px] font-bold text-white/35 hover:text-white/60 transition">Manage</button>
-        </div>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar px-5 pb-1">
-          {VIRTUAL_CARDS.map(({ gradient, last4, type }) => (
+      {/* ── Bank Accounts ── */}
+      <div className="px-5 mt-7">
+        <h3 className="text-base font-black text-white mb-3">Bank Accounts</h3>
+        <div className="rounded-3xl bunq-surface overflow-hidden">
+          {accs.map((a, i) => (
             <div
-              key={last4}
-              className={`shrink-0 w-[195px] h-[115px] rounded-3xl bg-gradient-to-br ${gradient} p-4 flex flex-col justify-between shadow-xl relative overflow-hidden`}
+              key={a.id ?? a.label ?? i}
+              className={`flex items-center gap-3 px-4 py-4 ${i < accs.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
             >
-              {/* shine overlay */}
-              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-              <div className="flex items-center justify-between relative">
-                <CreditCard className="w-5 h-5 text-white/70" />
-                <span className="text-[10px] font-black text-white/60 uppercase tracking-wider">{type}</span>
+              <div className={`w-10 h-10 rounded-2xl grid place-items-center shrink-0 text-xl ${i === 0 ? 'bg-blue-500/20' : 'bg-violet-500/20'}`}>
+                <span>{ACCOUNT_ICONS[i] || '🏦'}</span>
               </div>
-              <div className="relative">
-                <p className="text-white font-black text-sm tracking-[0.18em]">•••• {last4}</p>
-                <p className="text-[10px] text-white/50 mt-0.5 font-semibold uppercase tracking-widest">John Doe</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-white truncate">{a.label}</p>
+                <p className="text-[11px] text-white/40 font-mono truncate">{a.sub}</p>
               </div>
+              <Amount value={a.amount} />
             </div>
           ))}
+          <button className="w-full text-center py-3 text-[12px] font-black text-[#0a9dff] border-t border-white/[0.05]">
+            Add an Extra Bank Account
+          </button>
         </div>
       </div>
 
       {/* ── Recent Transactions ── */}
-      <div className="px-5">
+      <div className="px-5 mt-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-white">Recent</h3>
-          <button onClick={onForceAI} className="text-[11px] font-black bunq-text-gradient">
+          <h3 className="text-base font-black text-white">Recent</h3>
+          <button onClick={onForceAI} className="text-[12px] font-black text-[#0a9dff]">
             Ask Finn
           </button>
         </div>
-        <div className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] overflow-hidden">
-          {TRANSACTIONS.map(({ icon, bg, name, cat, amount }, i) => (
+        <div className="rounded-3xl bunq-surface overflow-hidden">
+          {txs.map((t, i) => (
             <div
-              key={name}
-              className={`flex justify-between items-center gap-3 px-4 py-3.5 ${i < TRANSACTIONS.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
+              key={t.id ?? t.name ?? i}
+              className={`flex items-center gap-3 px-4 py-3.5 ${i < txs.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-10 h-10 rounded-2xl ${bg} grid place-items-center shrink-0`}>
-                  {icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-white truncate">{name}</p>
-                  <p className="text-[11px] text-white/35 font-bold">{cat}</p>
-                </div>
+              <div className={`w-10 h-10 rounded-2xl grid place-items-center shrink-0 ${categoryColor(t.cat)}`}>
+                <span className="text-base font-black">{(t.name || '?').slice(0, 1).toUpperCase()}</span>
               </div>
-              <span className="text-sm text-white font-black shrink-0">{amount}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-white truncate">{t.name}</p>
+                <p className="text-[11px] text-white/40 font-bold truncate">{t.cat}</p>
+              </div>
+              <Amount value={t.amount} />
             </div>
           ))}
         </div>
       </div>
-
     </div>
   );
 }

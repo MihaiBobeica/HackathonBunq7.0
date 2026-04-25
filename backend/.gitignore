@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 venv/
 .env
+*.conf
+bunq-sandbox.conf
+.pytest_cache/
