@@ -6,7 +6,7 @@ body {
   font-family: Inter, Avenir, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   margin: 0;
-  background: #000;
+  background: #fff;
 }
 
 #root {
@@ -31,10 +31,7 @@ body {
 }
 
 .app-bg {
-  background:
-    radial-gradient(circle at 12% 6%, rgba(10,157,255,0.12), transparent 20rem),
-    radial-gradient(circle at 85% 96%, rgba(0,255,160,0.08), transparent 24rem),
-    #050505;
+  background: #fff;
 }
 
 .glass {
