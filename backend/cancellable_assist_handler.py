@@ -26,7 +26,7 @@ DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
 SYSTEM_PROMPT = """You are a concise financial fraud reviewer.
 Return one of two outcomes:
 1. no_strong_scam_presence: evidence does not show strong scam presence. Do not say it is guaranteed safe.
-2. scam_identified: identify the scam type, exactly 3 short reasons, risk factor, and recommend canceling.
+2. scam_identified: identify the scam type, exactly 3 short reasons, risk factor, and recommend the safest next action.
 Keep every text field short: one sentence max. Reasons must be brief fragments. No legal advice. Use submit_assessment exactly once."""
 
 TOOLS: list[dict[str, Any]] = [
@@ -63,7 +63,7 @@ TOOLS: list[dict[str, Any]] = [
                 },
                 "recommended_action": {
                     "type": "string",
-                    "description": "One short sentence. If scam_identified, recommend canceling the transaction.",
+                    "description": "One short sentence. For flagged payments, recommend canceling or contacting the bank. For self-checks, recommend not paying or verifying through a trusted channel.",
                 },
             },
             "required": [
@@ -107,6 +107,7 @@ class CancellableAssistHandler:
         self,
         text: str,
         files: list[UploadFile] | None,
+        mode: str = "flagged",
     ) -> CancellableAssistResponse:
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
@@ -183,7 +184,21 @@ class CancellableAssistHandler:
                     }
                 )
 
-        query_for_rag = f"{text}\n\nSuspicious transfer context: marketplace deposit, unknown beneficiary."
+        normalized_mode = "self" if mode == "self" else "flagged"
+        if normalized_mode == "flagged":
+            scenario = (
+                "Scenario: outbound payment was already made, bunqAI flagged it, "
+                "and the payment is still revocable within the safety window. "
+                "Recipient IBAN: NL99 BUNQ 0123 4567 89. "
+                "Transaction context: marketplace deposit, unknown beneficiary."
+            )
+        else:
+            scenario = (
+                "Scenario: user is proactively checking suspicious payment instructions before acting. "
+                "No bank payment has to exist. Analyze messages, screenshots, emails, invoices, or PDFs for fraud signals."
+            )
+
+        query_for_rag = f"{text}\n\n{scenario}"
         retrieved = retrieve_top_chunks(pdf_chunks_all, query_for_rag, top_k=5)
         rag_section = ""
         if retrieved:
@@ -191,14 +206,10 @@ class CancellableAssistHandler:
             for i, c in enumerate(retrieved, 1):
                 rag_section += f"\n[Excerpt {i}]\n{c}\n"
 
-        static_tx = (
-            "Transaction under review: outbound payment flagged as suspicious, sent within the last 24 hours. "
-            "Recipient IBAN: NL99 BUNQ 0123 4567 89. User may still be able to cancel."
-        )
         user_narrative = text.strip() or "(No additional message from the user.)"
 
         text_block = (
-            f"{static_tx}\n\n"
+            f"{scenario}\n\n"
             f"User description / context:\n{user_narrative}\n"
             f"{rag_section}\n"
             "Analyze screenshots (if any) and text. Keep the result concise. Call submit_assessment once."

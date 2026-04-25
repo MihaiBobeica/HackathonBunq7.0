@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   WalletCards, PiggyBank, ShoppingBasket, Film,
   ArrowUp, ArrowDown, Plus, CreditCard,
-  TrendingUp, AlertTriangle, X, Loader2, FileText, ShieldAlert,
+  TrendingUp, AlertTriangle, X, Loader2, FileText, ShieldAlert, ScanSearch,
 } from 'lucide-react';
 import { FLAGGED_IBAN } from '../constants';
 
@@ -48,9 +48,10 @@ const TRANSACTIONS = [
 ];
 
 const QUICK_ACTIONS = [
-  { label: 'Pay',     icon: <ArrowUp   className="w-6 h-6" />, color: 'bg-orange-500 shadow-orange-500/30' },
-  { label: 'Request', icon: <ArrowDown className="w-6 h-6" />, color: 'bg-blue-500 shadow-blue-500/30'    },
-  { label: 'Add',     icon: <Plus      className="w-6 h-6" />, color: 'bg-violet-500 shadow-violet-500/30' },
+  { label: 'Check',   icon: <ScanSearch className="w-6 h-6" />, color: 'bg-orange-500 shadow-orange-500/30' },
+  { label: 'Pay',     icon: <ArrowUp    className="w-6 h-6" />, color: 'bg-emerald-500 shadow-emerald-500/30', disabled: true },
+  { label: 'Request', icon: <ArrowDown  className="w-6 h-6" />, color: 'bg-blue-500 shadow-blue-500/30'    },
+  { label: 'Add',     icon: <Plus       className="w-6 h-6" />, color: 'bg-violet-500 shadow-violet-500/30' },
 ];
 
 // Default dev API (override with VITE_API_URL)
@@ -73,8 +74,9 @@ function fileKey(f) {
   return `${f.name}-${f.size}-${f.lastModified}`;
 }
 
-export default function HomeScreen({ onStartPayment, onForceAI }) {
+export default function HomeScreen() {
   const [assistOpen, setAssistOpen] = useState(false);
+  const [assistMode, setAssistMode] = useState('flagged');
   const [assistText, setAssistText] = useState('');
   const [assistFiles, setAssistFiles] = useState([]);
   const [assistSubmitting, setAssistSubmitting] = useState(false);
@@ -84,7 +86,8 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
   const [fraudTxCanceled, setFraudTxCanceled] = useState(false);
   const assistFileRef = useRef(null);
 
-  const openAssist = useCallback(() => {
+  const openAssist = useCallback((mode = 'flagged') => {
+    setAssistMode(mode);
     setAssistOpen(true);
     setAssistError('');
     setAssistResult(null);
@@ -126,6 +129,7 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
     setAssistSubmitting(true);
     const form = new FormData();
     form.append('text', assistText);
+    form.append('mode', assistMode);
     for (const f of assistFiles) {
       form.append('files', f);
     }
@@ -155,10 +159,11 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
     } finally {
       setAssistSubmitting(false);
     }
-  }, [assistText, assistFiles]);
+  }, [assistText, assistFiles, assistMode]);
 
   const isScamIdentified = assistResult?.outcome === 'scam_identified';
   const riskClass = RISK_STYLES[assistResult?.risk_factor] || 'text-white/70 bg-white/10 border-white/10';
+  const isFlaggedReview = assistMode === 'flagged';
 
   const cancelFraudTransaction = useCallback(() => {
     setFraudTxVisible(false);
@@ -191,12 +196,14 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
 
       {/* ── Quick Actions ── */}
       <div className="px-5 mb-5">
-        <div className="grid grid-cols-3 gap-4">
-          {QUICK_ACTIONS.map(({ label, icon, color }, i) => (
+        <div className="grid grid-cols-4 gap-3">
+          {QUICK_ACTIONS.map(({ label, icon, color, disabled }, i) => (
             <button
               key={label}
-              onClick={i === 0 ? onStartPayment : undefined}
-              className="flex flex-col items-center gap-2"
+              type="button"
+              onClick={!disabled && i === 0 ? () => openAssist('self') : undefined}
+              aria-disabled={disabled || undefined}
+              className={`flex flex-col items-center gap-2 ${disabled ? 'cursor-default' : ''}`}
             >
               <div className={`w-14 h-14 rounded-2xl ${color} shadow-lg grid place-items-center text-white transition hover:scale-105`}>
                 {icon}
@@ -227,14 +234,14 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
         </div>
       </div>
 
-      {/* ── Fraudulent transactions ── */}
+      {/* ── Warden alerts ── */}
       <div className="px-5 mb-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-white">Fraudulent transactions</h3>
+          <h3 className="text-sm font-black text-white">Warden alerts</h3>
           {fraudTxVisible && (
             <button
               type="button"
-              onClick={openAssist}
+              onClick={() => openAssist('flagged')}
               className="text-[11px] font-bold text-white/35 hover:text-white/60 transition"
             >
               View all
@@ -245,16 +252,16 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
           <div className="rounded-[1.7rem] bg-[#19191b] border border-white/[0.08] overflow-hidden">
             <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-black text-white/35 uppercase tracking-[0.12em]">Revocable</p>
-                <p className="text-sm font-black text-white mt-0.5">1 flagged payment</p>
+                <p className="text-[10px] font-black text-white/35 uppercase tracking-[0.12em]">Revocable payment</p>
+                <p className="text-sm font-black text-white mt-0.5">bunqAI raised flags</p>
               </div>
               <span className="text-[10px] font-black text-rose-200 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">
-                Action needed
+                Investigate?
               </span>
             </div>
             <button
               type="button"
-              onClick={openAssist}
+              onClick={() => openAssist('flagged')}
               className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition"
             >
               <div className="w-10 h-10 rounded-2xl bg-white/[0.06] border border-white/[0.08] grid place-items-center shrink-0">
@@ -264,10 +271,10 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-black text-white truncate">Marktplaats Escrow BV</p>
-                <p className="text-[11px] text-white/35 font-semibold truncate">Marketplace deposit · {FLAGGED_IBAN}</p>
+                <p className="text-[11px] text-white/35 font-semibold truncate">Marketplace deposit - {FLAGGED_IBAN}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-sm font-black text-white">- €1,500.00</p>
+                <p className="text-sm font-black text-white">- EUR 1,500.00</p>
                 <p className="text-[10px] text-white/35 font-bold mt-0.5">2h ago</p>
               </div>
             </button>
@@ -275,16 +282,34 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
         ) : fraudTxCanceled ? (
           <div className="rounded-[1.7rem] bg-[#19191b] border border-emerald-500/20 px-4 py-3.5">
             <p className="text-sm font-black text-emerald-300">Payment revoked</p>
-            <p className="text-[11px] text-white/35 font-semibold mt-1">No flagged payments.</p>
+            <p className="text-[11px] text-white/35 font-semibold mt-1">No active Warden alerts.</p>
           </div>
         ) : (
           <div className="rounded-[1.7rem] bg-[#19191b] border border-white/[0.06] px-4 py-3.5">
-            <p className="text-sm font-black text-white/70">No fraudulent transactions</p>
+            <p className="text-sm font-black text-white/70">No Warden alerts</p>
           </div>
         )}
       </div>
 
-      {/* ── My Cards ── */}
+      {/* ── Warden self-check ── */}
+      <div className="px-5 mb-5">
+        <button
+          type="button"
+          onClick={() => openAssist('self')}
+          className="w-full rounded-[1.7rem] bg-[#19191b] border border-white/[0.08] px-4 py-4 text-left flex items-center gap-3 hover:bg-white/[0.03] transition"
+        >
+          <div className="w-11 h-11 rounded-2xl bg-orange-500/15 text-orange-400 grid place-items-center shrink-0">
+            <ScanSearch className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-white">Warden self-check</p>
+            <p className="text-[11px] text-white/35 font-semibold mt-0.5 leading-snug">
+              Scan a weird message, invoice, or PDF before you act.
+            </p>
+          </div>
+        </button>
+      </div>
+
       <div className="mb-5">
         <div className="px-5 flex items-center justify-between mb-3">
           <h3 className="text-sm font-black text-white">My Cards</h3>
@@ -314,8 +339,8 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
       <div className="px-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-black text-white">Recent</h3>
-          <button onClick={onForceAI} className="text-[11px] font-black bunq-text-gradient">
-            Ask Finn
+          <button onClick={() => openAssist('self')} className="text-[11px] font-black bunq-text-gradient">
+            Warden
           </button>
         </div>
         <div className="rounded-3xl bg-[#1c1c1e] border border-white/[0.06] overflow-hidden">
@@ -364,7 +389,7 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
                     <ShieldAlert className="w-4 h-4" />
                   </div>
                   <h2 id="assist-title" className="text-[15px] font-black text-white truncate">
-                    {assistResult ? 'Guidance' : "Don't let yourself be scammed"}
+                    {assistResult ? 'Warden verdict' : isFlaggedReview ? 'Investigate flagged payment?' : 'Check this'}
                   </h2>
                 </div>
                 <button
@@ -381,16 +406,20 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
                 {!assistResult && (
                   <>
                     <p className="text-[12px] text-white/45 font-semibold leading-relaxed">
-                      We may be able to determine if this transaction is fraudulent. Provide us with more context to help us help you.
+                      {isFlaggedReview
+                        ? 'bunqAI flagged this completed payment. Add context so Warden can investigate the source before you decide what to do.'
+                        : 'Got a strange message, email, invoice, or PDF telling you to make a payment? Let Warden check it for scam signals first.'}
                     </p>
                     <p className="text-[12px] text-white/45 font-semibold leading-relaxed">
-                      Drop conversation screenshots, invoices, or any other context related to this transfer.
+                      {isFlaggedReview
+                        ? 'Upload screenshots, invoices, chats, or letters linked to this transfer.'
+                        : 'Upload the document or paste the message. No payment needs to exist for this scan.'}
                     </p>
                     <textarea
                       rows={4}
                       value={assistText}
                       onChange={(e) => setAssistText(e.target.value)}
-                      placeholder="Why you sent money, what they told you, what concerns you..."
+                      placeholder={isFlaggedReview ? 'Why you sent money, what they told you, what concerns you...' : 'Paste the suspicious instructions or describe what feels off...'}
                       className="w-full p-4 rounded-2xl bg-[#1c1c1e] border border-white/[0.06] text-sm text-white placeholder-white/25 focus:ring-2 focus:ring-orange-500/40 outline-none resize-none font-semibold"
                     />
                     <input
@@ -409,7 +438,7 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
                       onClick={() => assistFileRef.current?.click()}
                       className="w-full rounded-2xl border border-dashed border-white/15 py-4 px-4 text-left hover:border-white/25 transition"
                     >
-                      <p className="text-xs font-black text-white">Upload evidence</p>
+                      <p className="text-xs font-black text-white">{isFlaggedReview ? 'Upload evidence' : 'Upload message or PDF'}</p>
                       <p className="text-[11px] text-white/35 font-semibold mt-1">JPEG, PNG, or PDF only</p>
                     </motion.button>
                     {assistFiles.length > 0 && (
@@ -518,7 +547,7 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
                           Analyzing…
                         </>
                       ) : (
-                        'Get guidance'
+                        isFlaggedReview ? 'Investigate payment' : 'Check for fraud'
                       )}
                     </motion.button>
                     <button
@@ -531,7 +560,7 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
                   </>
                 ) : (
                   <>
-                    {isScamIdentified && (
+                    {isScamIdentified && isFlaggedReview && (
                       <button
                         type="button"
                         onClick={cancelFraudTransaction}
@@ -545,7 +574,7 @@ export default function HomeScreen({ onStartPayment, onForceAI }) {
                       onClick={closeAssist}
                       className="w-full py-3.5 rounded-2xl bg-white/10 text-white/80 font-black text-sm hover:bg-white/14 transition"
                     >
-                      {isScamIdentified ? 'Not now (proceed with caution)' : 'Done'}
+                      {isScamIdentified && isFlaggedReview ? 'Not now (proceed with caution)' : 'Done'}
                     </button>
                   </>
                 )}

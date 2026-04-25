@@ -32,6 +32,7 @@ _cancellable = CancellableAssistHandler()
 @app.post("/cancellable-assist", response_model=CancellableAssistResponse)
 async def cancellable_assist(
     text: Annotated[str, Form()] = "",
+    mode: Annotated[str, Form()] = "flagged",
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> CancellableAssistResponse:
-    return await _cancellable.handle(text, files)
+    return await _cancellable.handle(text, files, mode)
