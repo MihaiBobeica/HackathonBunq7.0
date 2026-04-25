@@ -22,7 +22,18 @@ class LlmContentHandler:
         ("do not contact", "The message discourages contacting a trusted channel."),
         ("stay on the call", "The message pressures the user to remain on a call."),
     )
-    LOW_RISK_PATTERNS = ("groceries", "grocery", "no rush", "whenever", "same iban", "dinner")
+    LOW_RISK_PATTERNS = (
+        "groceries",
+        "grocery",
+        "no rush",
+        "whenever",
+        "same iban",
+        "same iban as last time",
+        "dinner",
+        "albert heijn",
+        "known friend",
+        "known contact",
+    )
 
     async def handle_scam_check(
         self, text: str, uploads: list[UploadFile] | None
@@ -45,7 +56,7 @@ class LlmContentHandler:
         if clean_text and self._looks_low_risk(lower_text):
             return self._low_risk_verdict(
                 upload_summaries=upload_summaries,
-                detail="The pasted text looks like a familiar low-pressure payment request in the demo playbook.",
+                detail="The pasted text looks like a familiar low-pressure reimbursement request.",
                 confidence="medium",
             )
 
