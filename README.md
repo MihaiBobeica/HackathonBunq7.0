@@ -1,46 +1,60 @@
-# HackathonBunq7.0
+# Warden
 
-Local demo with a React/Vite frontend and FastAPI backend, launched with Docker Compose. The application does use the Bunq API.
+A multimodal fraud-prevention prototype for banking payments, built for bunq Hackathon 7.0.
 
-## Prerequisites
+Warden lets a user provide supporting evidence such as screenshots, invoices, chat logs, or PDFs before completing a suspicious payment. The system analyzes the evidence, explains the risk, and can hold flagged payments in a review queue instead of immediately sending them.
+
+## What it does
+
+- analyzes uploaded evidence with a multimodal LLM
+- combines document evidence with payment context
+- returns a structured risk verdict with reasons
+- applies a fast local risk scan before the deeper AI check
+- keeps flagged payments in a review flow
+- integrates with the bunq sandbox API
+
+## Stack
+
+- **Frontend:** React + Vite
+- **Backend:** FastAPI
+- **AI:** Anthropic Claude
+- **Banking:** bunq API
+- **Deployment:** Docker Compose
+
+## Run locally
+
+### Prerequisites
 
 - Docker Desktop
 - Anthropic API key
 
-## Run
-
-Create `backend/.env` first:
+Create `backend/.env`:
 
 ```env
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 ```
 
-Start both services:
+Start the application:
 
 ```powershell
 docker compose up --build
 ```
 
-Open:
-
 - Frontend: `http://localhost:5173`
 - Backend: `http://127.0.0.1:8000`
 
-Stop the stack:
+Stop it with:
 
 ```powershell
 docker compose down
 ```
 
-## Notes
-
-- Do not commit `backend/.env`; it contains secrets and is ignored by git.
-
+Do not commit `backend/.env`; it contains secrets and is ignored by git.
 
 ## Demo
 
-The bunq sandbox is pre-seeded with 11 recipients. All IBANs are real sandbox accounts and accept transfers from the main account (`NL27BUNQ2106261071`).
+The bunq sandbox is pre-seeded with 11 recipients. All IBANs are sandbox accounts and accept transfers from the main account (`NL27BUNQ2106261071`).
 
 ### Recipients
 
@@ -54,60 +68,50 @@ The bunq sandbox is pre-seeded with 11 recipients. All IBANs are real sandbox ac
 | 6 | Niels Cooper | `NL33BUNQ2106270372` | Birthday gift |
 | 7 | Laura Sutherland | `NL96BUNQ2106264291` | Groceries |
 | 8 | Val Haynes | `NL76BUNQ2106269404` | Utility bill |
-| 9 | Derick Wickham | `NL58BUNQ2106268661` | Freelance invoice |
-| 10 | Folkert Hardy | `NL51BUNQ2106262191` | Car repair |
+| 9 | Derick Wickham | `NL58BUNQ2106257058` | Freelance invoice |
+| 10 | Folkert Hardy | `NL51BUNQ2106257058` | Car repair |
 | 11 | **Andre Hart** *(flagged)* | `NL21BUNQ2106250509` | Marketplace deposit |
 
-> The legal account-holder name shown on bunq receipts is fixed by the sandbox (it draws from a bunq-approved pool). The display labels above are what your demo presents to the user.
+> The legal account-holder name shown on bunq receipts is fixed by the sandbox. The display labels above are what the demo presents to the user.
 
-### Low-risk vs High-risk scenarios
+### Risk layers
 
-The app combines two risk layers: a **local Finn scan** that runs in the browser when you click _Add payment_, and the **Warden** (Claude-powered) check when you press the orange button or the flagged-payment alert.
+The app combines two checks:
 
-#### Pay flow → expected to be **clear**
+1. **Finn** runs a lightweight local scan when a payment is added.
+2. **Warden** performs the deeper Claude-powered evidence analysis.
+
+### Example low-risk payments
 
 | IBAN | Amount | Description | Why it stays clear |
 |---|---|---|---|
-| `NL29BUNQ2106257058` | `EUR 24.50` | `Splitting dinner` | Legit IBAN, low amount, no scam keywords |
-| `NL54BUNQ2106266987` | `EUR 850.00` | `April rent` | Legit IBAN, no urgency or marketplace context |
-| `NL51BUNQ2106262191` | `EUR 320.00` | `Brake pad replacement` | Service context, reasonable amount |
+| `NL29BUNQ2106257058` | `EUR 24.50` | `Splitting dinner` | Low amount and normal payment context |
+| `NL54BUNQ2106266987` | `EUR 850.00` | `April rent` | Consistent rent context |
+| `NL51BUNQ2106261241` | `EUR 320.00` | `Brake pad replacement` | Plausible service payment |
 
-#### Pay flow → expected to be **flagged**
+### Example flagged payments
 
 | IBAN | Amount | Description | Why Finn flags it |
 |---|---|---|---|
-| `NL21BUNQ2106250509` | any | any | IBAN is on the local fraud list (Andre Hart) |
-| any legit IBAN | `EUR 1,500.00` | `Marketplace deposit` | High first transfer + scam keyword (`marketplace`) |
+| `NL21BUNQ2106250509` | any | any | IBAN is on the local fraud list |
+| any legit IBAN | `EUR 1,500.00` | `Marketplace deposit` | High first transfer + scam keyword |
 | any legit IBAN | `EUR 2,400.00` | `Urgent escrow for crypto` | High amount + multiple scam keywords |
 
-You can also click **Fill flagged demo (Andre Hart)** in the Add Payment modal to load the canonical flagged scenario in one tap. Flagged payments never leave the sandbox account — they sit in the Warden queue for review.
+Flagged payments stay in the Warden queue for review rather than leaving the sandbox account.
 
-#### Warden self-check (orange "Check this" button) → expected **Low risk** / `legitimate_consistent_evidence`
+### Multimodal self-check
 
-Upload a screenshot or PDF that includes:
-- A real-looking IBAN (one of the legit recipients above)
-- A consistent merchant name across invoice and account holder
-- A reasonable amount and clear purpose (rent, repair, freelance invoice)
-- Optional: a WhatsApp screenshot where the IBAN matches the invoice
+For a low-risk test, upload evidence with:
 
-Sample text to paste:
-> _"Just paid the April rent for my room. Invoice from Eindhoven Student Housing B.V., IBAN NL54BUNQ2106266987, EUR 850.00. They sent the same details over WhatsApp last month and I've paid them every month for a year."_
+- a valid-looking IBAN
+- consistent merchant and beneficiary names
+- a reasonable amount and purpose
+- optional supporting chat evidence
 
-#### Warden self-check → expected **High risk** / `scam_identified`
+For a high-risk test, use conflicting or obviously invalid details such as mismatched names, invalid registration numbers, suspicious domains, unusual fees, or explicitly synthetic documents.
 
-Any one of these alone is enough to trigger High:
-- IBAN is all zeros or clearly invalid (e.g. `NL00 BUNQ 0000 0000 00`)
-- KvK / VAT / EIN registration number is all zeros or `123456789`
-- Email domain ends in `.example`, `.test`, `.invalid`, or `.localhost`
-- Invoice contains a small "adjustment" or "fee" line item (e.g. `EUR 1.00`) mixed with a large total
-- Document explicitly labels itself as synthetic, a test, or a sample
-- Sender name, IBAN beneficiary name, and invoice company name don't match each other
-
-Sample text to paste:
-> _"I got an invoice on WhatsApp from someone calling themselves CryptoEscrow Ltd, IBAN NL00 BUNQ 0000 0000 00, KvK 000000000, billing@example.example. They want EUR 4,200.00 plus a EUR 1.00 'verification fee' urgently to release my deposit."_
+Example documents are available in the `examples` folder.
 
 ### Sandbox top-up
 
-The main account starts at €0. Click the **Sandbox +€500** pill on the balance hero (visible only when the bunq API is reachable) to request funds from `sugardaddy@bunq.com`. Repeat as needed.
-
-There are some example for documents in the examples folder that you can use to test out the multimodal component of Warden.
+The main account starts at EUR 0. Click **Sandbox +EUR 500** in the balance area to request sandbox funds from `sugardaddy@bunq.com`.
