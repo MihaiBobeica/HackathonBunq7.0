@@ -68,8 +68,8 @@ The bunq sandbox is pre-seeded with 11 recipients. All IBANs are sandbox account
 | 6 | Niels Cooper | `NL33BUNQ2106270372` | Birthday gift |
 | 7 | Laura Sutherland | `NL96BUNQ2106264291` | Groceries |
 | 8 | Val Haynes | `NL76BUNQ2106269404` | Utility bill |
-| 9 | Derick Wickham | `NL58BUNQ2106257058` | Freelance invoice |
-| 10 | Folkert Hardy | `NL51BUNQ2106257058` | Car repair |
+| 9 | Derick Wickham | `NL58BUNQ2106268661` | Freelance invoice |
+| 10 | Folkert Hardy | `NL51BUNQ2106262191` | Car repair |
 | 11 | **Andre Hart** *(flagged)* | `NL21BUNQ2106250509` | Marketplace deposit |
 
 > The legal account-holder name shown on bunq receipts is fixed by the sandbox. The display labels above are what the demo presents to the user.
@@ -87,7 +87,7 @@ The app combines two checks:
 |---|---|---|---|
 | `NL29BUNQ2106257058` | `EUR 24.50` | `Splitting dinner` | Low amount and normal payment context |
 | `NL54BUNQ2106266987` | `EUR 850.00` | `April rent` | Consistent rent context |
-| `NL51BUNQ2106261241` | `EUR 320.00` | `Brake pad replacement` | Plausible service payment |
+| `NL51BUNQ2106262191` | `EUR 320.00` | `Brake pad replacement` | Plausible service payment |
 
 ### Example flagged payments
 
